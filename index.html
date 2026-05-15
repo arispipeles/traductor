@@ -14,19 +14,21 @@
             padding: 15px; 
             display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: center;
             position: fixed; top: 0; width: 100%; z-index: 1000;
+            transition: transform 0.3s;
         }
+        #admin-panel.hidden-panel { transform: translateY(-100%); }
 
         #display-area {
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            display: flex; flex-direction: column; justify-content: center;
             height: 100vh; padding: 0 5%; text-align: center;
         }
 
-        .translation-text {
-            font-weight: 900; text-transform: uppercase; line-height: 1;
-            text-shadow: 0 0 30px rgba(251, 191, 36, 0.4); width: 100%;
+        .translation-line {
+            font-weight: 900; text-transform: uppercase; line-height: 1.1;
+            transition: all 0.5s ease;
         }
 
-        .live-gray-text { color: #555; font-size: 2.5rem; margin-bottom: 1.5rem; min-height: 3.5rem; font-style: italic; }
+        .live-gray-text { color: #555; font-size: 2rem; margin-bottom: 1rem; min-height: 3rem; font-style: italic; }
 
         /* Monitor de Audio */
         #audio-monitor {
@@ -34,18 +36,16 @@
         }
         .bar { width: 8px; background: #10b981; min-height: 2px; transition: height 0.1s; }
         
-        input, select { background: #333; color: #fff; border: 1px solid #555; padding: 10px; border-radius: 8px; }
+        input, select { background: #333; color: #fff; border: 1px solid #555; padding: 10px; border-radius: 8px; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div id="admin-panel">
     <div class="flex flex-col items-center">
-        <span class="text-[10px] text-gray-500 font-bold uppercase">1. Monitor de Micrófono</span>
+        <span class="text-[10px] text-gray-500 font-bold uppercase">1. Monitor Mic</span>
         <div id="audio-monitor">
-            <div class="bar" style="height: 10%"></div><div class="bar" style="height: 40%"></div>
-            <div class="bar" style="height: 80%"></div><div class="bar" style="height: 30%"></div>
-            <div class="bar" style="height: 60%"></div><div class="bar" style="height: 20%"></div>
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
         </div>
     </div>
 
@@ -55,12 +55,22 @@
     </div>
 
     <div class="flex flex-col">
-        <span class="text-[10px] text-gray-500 font-bold uppercase">3. Tamaño Texto</span>
+        <span class="text-[10px] text-gray-500 font-bold uppercase">3. Dirección</span>
+        <select id="langMode">
+            <option value="es-EN">Español ➔ Inglés</option>
+            <option value="en-ES">Inglés ➔ Español</option>
+        </select>
+    </div>
+
+    <div class="flex flex-col">
+        <span class="text-[10px] text-gray-500 font-bold uppercase">4. Tamaño Letra</span>
         <input type="range" id="sizeSlider" min="5" max="25" value="13" class="w-32">
     </div>
 
-    <button id="btnStart" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black hover:bg-green-500 transition-all">INICIAR SISTEMA</button>
+    <button id="btnStart" class="bg-green-600 text-white px-6 py-3 rounded-xl font-black hover:bg-green-500 transition-all">INICIAR</button>
     
+    <button onclick="document.getElementById('admin-panel').classList.toggle('hidden-panel')" class="bg-gray-700 text-white p-3 rounded-xl text-xs">OCULTAR</button>
+
     <div id="status" class="text-xs font-mono px-3 py-2 bg-black rounded border border-gray-700">
         ESTADO: <span id="statusText" class="text-gray-500">APAGADO</span>
     </div>
@@ -68,93 +78,111 @@
 
 <div id="display-area">
     <div id="live-text" class="live-gray-text">EL TEXTO APARECERÁ AQUÍ...</div>
-    <div id="translated-text" class="translation-text" style="font-size: 13vw;">
-        LISTO PARA TRADUCIR
+    <div id="history-container" class="flex flex-col gap-4">
+        <!-- Las líneas de traducción aparecerán aquí -->
+        <div id="line-0" class="translation-line" style="font-size: 13vw;">...</div>
+        <div id="line-1" class="translation-line opacity-50" style="font-size: 8vw;"></div>
+        <div id="line-2" class="translation-line opacity-30" style="font-size: 6vw;"></div>
     </div>
 </div>
 
 <script>
 let recognition;
 let isRecording = false;
-let audioContext;
-let analyser;
-let microphone;
 let lastTranslationTime = 0;
 let accumulatedText = "";
+let history = ["", "", ""];
 
+const bars = document.querySelectorAll('.bar');
 const statusText = document.getElementById('statusText');
 const liveDisplay = document.getElementById('live-text');
-const translatedDisplay = document.getElementById('translated-text');
 const sizeSlider = document.getElementById('sizeSlider');
-const bars = document.querySelectorAll('.bar');
+const apiKeyInput = document.getElementById('apiKey');
 
-// Recuperar API Key guardada
-if(localStorage.getItem('church_key')) document.getElementById('apiKey').value = localStorage.getItem('church_key');
+// Cargar llave guardada
+if(localStorage.getItem('church_key')) apiKeyInput.value = localStorage.getItem('church_key');
 
-sizeSlider.oninput = (e) => { translatedDisplay.style.fontSize = e.target.value + 'vw'; };
+// Control de tamaño
+sizeSlider.oninput = (e) => {
+    document.getElementById('line-0').style.fontSize = e.target.value + 'vw';
+};
 
-async function startAudioMonitor() {
+// Monitor de sonido (Visual)
+async function startVisualizer() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        microphone = audioContext.createMediaStreamSource(stream);
-        microphone.connect(analyser);
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
         analyser.fftSize = 32;
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-        function updateBars() {
+        function update() {
             analyser.getByteFrequencyData(dataArray);
             bars.forEach((bar, i) => {
                 const val = dataArray[i] || 0;
-                bar.style.height = (val / 2) + '%';
+                bar.style.height = Math.max(2, val / 3) + 'px';
             });
-            if(isRecording) requestAnimationFrame(updateBars);
+            if(isRecording) requestAnimationFrame(update);
         }
-        updateBars();
-    } catch (err) {
-        console.error("Error acceso audio:", err);
-        alert("No se pudo acceder al micrófono físico.");
-    }
+        update();
+    } catch (e) { console.error("Error monitor audio"); }
 }
 
 async function callGemini(text) {
-    const key = document.getElementById('apiKey').value.trim();
-    if (!key || text.length < 10) return;
+    const key = apiKeyInput.value.trim();
+    if (!key || text.length < 5) return;
 
-    const now = Date.now();
-    if (now - lastTranslationTime < 5000) return; // Máximo 1 vez cada 5 segundos
+    const mode = document.getElementById('langMode').value;
+    const prompt = mode === 'es-EN' 
+        ? `Translate to English (Church sermon context). Only the translated text, no explanations: "${text}"`
+        : `Traduce al Español (Contexto de sermón). Solo el texto traducido, sin explicaciones: "${text}"`;
 
-    lastTranslationTime = now;
     statusText.innerText = "TRADUCIENDO...";
-    
+    statusText.style.color = "#fbbf24";
+
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: `Translate to English. Only the translation: "${text}"` }] }]
-            })
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
+
         const data = await response.json();
-        const result = data.candidates[0].content.parts[0].text;
-        translatedDisplay.innerText = result.toUpperCase();
-        statusText.innerText = "OK - ESCUCHANDO";
-        accumulatedText = ""; // Limpiar buffer
+        const result = data.candidates[0].content.parts[0].text.trim();
+
+        // Rotar historial
+        history.unshift(result.toUpperCase());
+        history = history.slice(0, 3);
+
+        // Actualizar pantalla
+        document.getElementById('line-0').innerText = history[0];
+        document.getElementById('line-1').innerText = history[1];
+        document.getElementById('line-2').innerText = history[2];
+
+        statusText.innerText = "ESCUCHANDO";
+        statusText.style.color = "#10b981";
+        accumulatedText = ""; 
     } catch (e) {
         statusText.innerText = "ERROR API";
+        statusText.style.color = "#ef4444";
     }
 }
 
 function initRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!window.SpeechRecognition) return alert("Usa Chrome.");
+    if (!window.SpeechRecognition) {
+        alert("Tu navegador no soporta el reconocimiento de voz. Usa Chrome en Mac.");
+        return;
+    }
 
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'es-ES';
+    
+    const mode = document.getElementById('langMode').value;
+    recognition.lang = mode === 'es-EN' ? 'es-ES' : 'en-US';
 
     recognition.onresult = (event) => {
         let interim = '';
@@ -165,40 +193,37 @@ function initRecognition() {
             else interim += event.results[i][0].transcript;
         }
 
-        // MOSTRAR LO QUE SE ESCUCHA (TEXTO GRIS)
         if (interim || final) {
             liveDisplay.innerText = interim || final;
         }
 
         if (final) {
             accumulatedText += " " + final;
-            if (accumulatedText.split(' ').length > 4) {
+            // Traducir cada 8 palabras o si hay una pausa larga
+            if (accumulatedText.split(' ').length > 8) {
                 callGemini(accumulatedText);
             }
         }
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
-    recognition.onerror = (e) => { console.log("Error Speech:", e.error); };
+    recognition.start();
 }
 
 document.getElementById('btnStart').onclick = () => {
     if (isRecording) {
-        location.reload(); // Reinicio total para limpiar memoria
+        location.reload(); 
     } else {
-        const key = document.getElementById('apiKey').value.trim();
-        if(!key) return alert("Pon tu API Key primero");
+        const key = apiKeyInput.value.trim();
+        if(!key) { alert("Pega tu API Key primero"); return; }
         localStorage.setItem('church_key', key);
 
-        initRecognition();
-        startAudioMonitor();
-        
-        recognition.start();
         isRecording = true;
-        document.getElementById('btnStart').innerText = "REINICIAR TODO";
+        document.getElementById('btnStart').innerText = "REINICIAR";
         document.getElementById('btnStart').className = "bg-red-600 text-white px-6 py-3 rounded-xl font-black";
-        statusText.innerText = "SISTEMA ACTIVO";
-        statusText.className = "text-green-500";
+        
+        startVisualizer();
+        initRecognition();
     }
 };
 </script>
