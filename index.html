@@ -7,25 +7,25 @@
     <style>
         body { margin: 0; background-color: black; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
         #config-panel { background: #1a1a1a; padding: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 2px solid #333; }
-        input, select, button { padding: 8px; border-radius: 5px; border: none; }
+        input, select, button { padding: 8px; border-radius: 5px; border: none; font-size: 14px; }
         button { cursor: pointer; font-weight: bold; }
         .btn-start { background: #28a745; color: white; }
         .btn-stop { background: #dc3545; color: white; }
         
-        #status-bar { position: fixed; top: 15px; right: 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        #status-bar { position: fixed; top: 18px; right: 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px; }
         .dot { width: 12px; height: 12px; border-radius: 50%; background: gray; }
         
         #display-area { height: calc(100vh - 80px); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box; text-align: center; }
-        #interim-text { color: #888; font-size: 24px; margin-bottom: 30px; min-height: 1.2em; max-width: 80%; }
-        #translated-text { color: #FFD700; font-weight: bold; line-height: 1.2; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #interim-text { color: #888; font-size: 26px; margin-bottom: 30px; min-height: 1.2em; max-width: 80%; font-style: italic; }
+        #translated-text { color: #FFD700; font-weight: bold; line-height: 1.3; text-shadow: 3px 3px 6px rgba(0,0,0,0.8); max-width: 90%; }
         
-        .slider-container { display: flex; align-items: center; gap: 10px; color: white; font-size: 12px; }
+        .slider-container { display: flex; align-items: center; gap: 10px; color: white; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div id="config-panel">
-    <input type="password" id="api-key" placeholder="Pega tu API Key de Google" style="width: 200px;">
+    <input type="password" id="api-key" placeholder="Pega tu API Key aquí" style="width: 250px;">
     <select id="translation-direction">
         <option value="Español a Inglés">Español ➔ Inglés</option>
         <option value="Inglés a Español">Inglés ➔ Español</option>
@@ -51,7 +51,7 @@
     let isRecording = false;
     let accumulatedText = "";
     let lastTranslationTime = 0;
-    const MIN_WORDS = 6; // Espera a tener al menos 6 palabras para traducir
+    const MIN_WORDS = 5; 
 
     const interimDisplay = document.getElementById('interim-text');
     const translatedDisplay = document.getElementById('translated-text');
@@ -60,18 +60,28 @@
     const statusText = document.getElementById('status-text');
     const fontSizeSlider = document.getElementById('font-size');
 
-    // Actualizar tamaño de letra en tiempo real
+    // Control de tamaño en pantalla de 75"
     fontSizeSlider.oninput = () => {
         translatedDisplay.style.fontSize = fontSizeSlider.value + 'px';
     };
     translatedDisplay.style.fontSize = '80px';
 
     if (!('webkitSpeechRecognition' in window)) {
-        alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome.");
+        alert("Por favor, usa Google Chrome para esta aplicación.");
     } else {
         recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
+        recognition.lang = 'es-US'; // Optimizado para español hablado en EE.UU.
+
+        // Cambiar idioma del micrófono según la dirección seleccionada
+        document.getElementById('translation-direction').onchange = (e) => {
+            if(e.target.value === "Inglés a Español") {
+                recognition.lang = 'en-US';
+            } else {
+                recognition.lang = 'es-US';
+            }
+        };
 
         recognition.onstart = () => {
             isRecording = true;
@@ -90,38 +100,43 @@
                     interimTranscript += event.results[i][0].transcript;
                 }
             }
-            interimDisplay.textContent = interimTranscript || accumulatedText;
+            
+            const currentSpeech = (accumulatedText + interimTranscript).trim();
+            interimDisplay.textContent = currentSpeech || "Escuchando...";
 
-            // Lógica de traducción inteligente
-            const wordCount = (accumulatedText + interimTranscript).trim().split(/\s+/).length;
+            // Conteo de palabras e intervalo de tiempo para no saturar la API gratuita
+            const wordCount = currentSpeech.split(/\s+/).length;
             const now = Date.now();
 
             if (wordCount >= MIN_WORDS && (now - lastTranslationTime) > 4000) {
-                const textToTranslate = (accumulatedText + interimTranscript).trim();
-                translateText(textToTranslate);
-                accumulatedText = ""; // Limpiar para la siguiente frase
+                translateText(currentSpeech);
+                accumulatedText = ""; 
                 lastTranslationTime = now;
             }
         };
 
         recognition.onerror = (event) => {
-            console.error("Error de voz:", event.error);
-            statusDot.style.background = "orange";
-            statusText.textContent = "REINTENTANDO...";
-            if (isRecording) recognition.start();
+            console.error("Error micrófono:", event.error);
+            if (isRecording && event.error !== 'no-speech') {
+                statusDot.style.background = "orange";
+                statusText.textContent = "RECONECTANDO...";
+            }
         };
 
         recognition.onend = () => {
-            if (isRecording) recognition.start(); // Reinicio automático si se corta
+            if (isRecording) {
+                try { recognition.start(); } catch(e) {}
+            }
         };
     }
 
     async function translateText(text) {
-        const apiKey = document.getElementById('api-key').value;
+        // Limpiamos la API Key de espacios o saltos de línea invisibles que rompen la URL
+        const apiKey = document.getElementById('api-key').value.trim();
         const direction = document.getElementById('translation-direction').value;
         
         if (!apiKey) {
-            statusText.textContent = "FALTA API KEY";
+            statusText.textContent = "PEGA TU API KEY";
             statusDot.style.background = "red";
             return;
         }
@@ -129,39 +144,53 @@
         statusDot.style.background = "#007bff";
         statusText.textContent = "TRADUCIENDO...";
 
+        // Usamos el endpoint estándar v1beta con el modelo de producción estable
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        const prompt = `Actúa como un traductor simultáneo de una iglesia. Traduce el siguiente texto de ${direction} de forma natural y solemne. Solo entrega el texto traducido: "${text}"`;
+        // Prompt optimizado y directo
+        const promptText = `Eres un traductor simultáneo en una iglesia. Traduce de forma natural, fluida y solemne de ${direction}. Entrega exclusivamente la traducción directa, sin comentarios: "${text}"`;
+
+        const payload = {
+            contents: [{
+                parts: [{
+                    text: promptText
+                }]
+            }]
+        };
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
             });
 
             const data = await response.json();
             
-            if (data.candidates && data.candidates[0].content.parts[0].text) {
+            if (response.ok && data.candidates && data.candidates[0].content.parts[0].text) {
                 translatedDisplay.textContent = data.candidates[0].content.parts[0].text;
                 statusDot.style.background = "#28a745";
                 statusText.textContent = "ESCUCHANDO";
+            } else if (data.error) {
+                // Si Google responde un error específico, lo exponemos directamente en pantalla
+                throw new Error(`${data.error.status}: ${data.error.message}`);
             } else {
-                throw new Error("Respuesta vacía");
+                throw new Error("Estructura de respuesta inesperada");
             }
         } catch (error) {
-            console.error("Error API:", error);
+            console.error("Error detallado:", error);
             statusDot.style.background = "red";
-            statusText.textContent = "ERROR API";
+            // Cortamos el texto del error si es muy largo para que quepa en la barra superior
+            statusText.textContent = error.message.substring(0, 35).toUpperCase();
         }
     }
 
     btnToggle.onclick = () => {
         if (isRecording) {
-            recognition.stop();
             isRecording = false;
+            recognition.stop();
             btnToggle.textContent = "INICIAR MICRO";
             btnToggle.className = "btn-start";
             statusDot.style.background = "gray";
