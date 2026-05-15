@@ -7,10 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap" rel="stylesheet">
     <style>
+        /* */
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #000; 
-            color: #fbbf24; /* Amarillo vibrante para el televisor de 75" */
+            color: #fbbf24; /* Amarillo vibrante */
             overflow: hidden; 
             height: 100vh; 
             margin: 0; 
@@ -59,6 +60,8 @@
             display: none;
             font-size: 14px;
             z-index: 200;
+            text-align: center;
+            max-width: 80%;
         }
     </style>
 </head>
@@ -74,7 +77,9 @@
         <span class="text-xs text-gray-400">Tamaño:</span>
         <input type="range" id="sizeSlider" min="5" max="25" value="14" class="w-32 accent-yellow-500">
     </div>
-    <button id="btnFull" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-xs">PANTALLA COMPLETA</button>
+    <div class="flex flex-col ml-4">
+        <input type="password" id="apiKeyInput" value="AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw" class="bg-gray-900 text-[10px] text-gray-500 px-2 py-1 rounded border border-gray-700 w-40" placeholder="API KEY">
+    </div>
 </div>
 
 <div class="flex flex-col justify-center items-center h-screen">
@@ -88,7 +93,6 @@
 <div id="errorBox" class="error-log"></div>
 
 <script>
-const API_KEY = "AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw"; // Tu nueva clave guardada
 let recognition;
 let isRecording = false;
 
@@ -97,58 +101,53 @@ const translated = document.getElementById('translated');
 const original = document.getElementById('original');
 const errorBox = document.getElementById('errorBox');
 const sizeSlider = document.getElementById('sizeSlider');
+const apiKeyInput = document.getElementById('apiKeyInput');
 
 function showError(msg) {
     console.error(msg);
-    errorBox.innerText = msg;
+    errorBox.innerHTML = `<strong>Aviso:</strong> ${msg}`;
     errorBox.style.display = 'block';
-    setTimeout(() => { errorBox.style.display = 'none'; }, 8000);
+    setTimeout(() => { errorBox.style.display = 'none'; }, 10000);
 }
 
 async function translateText(text) {
     if (text.trim().length < 2) return;
     
+    const key = apiKeyInput.value.trim();
     const isEsToEn = document.getElementById('langMode').value === 'es-EN';
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
-    // Probamos diferentes rutas de modelos para evitar el error "Not Found"
-    const endpoints = [
-        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-        `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`
-    ];
+    // URL corregida con el formato exacto que pide Google para v1beta
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
-    let success = false;
-    
-    for (const url of endpoints) {
-        if (success) break;
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Translate this church sermon text from ${source} to ${target}. Keep it natural and solemn. ONLY output the translation: "${text}"` }] }]
-                })
-            });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: `Translate this church sermon from ${source} to ${target}. ONLY output the translation, no quotes, no explanations: "${text}"`
+                    }]
+                }]
+            })
+        });
 
-            const data = await response.json();
-            
-            if (data.candidates && data.candidates[0].content) {
-                const result = data.candidates[0].content.parts[0].text;
-                translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
-                success = true;
-                errorBox.style.display = 'none';
-            } else if (data.error) {
-                console.log("Probando siguiente modelo debido a:", data.error.message);
-            }
-        } catch (e) {
-            console.log("Error en este endpoint, intentando el siguiente...");
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(`Google dice: ${data.error.message}`);
+            return;
         }
-    }
 
-    if (!success) {
-        showError("La IA no respondió. Verifica que tu API Key esté activa en Google AI Studio.");
+        if (data.candidates && data.candidates[0].content) {
+            const result = data.candidates[0].content.parts[0].text;
+            translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
+            errorBox.style.display = 'none';
+        }
+    } catch (e) {
+        showError("Error de conexión. Revisa tu internet.");
     }
 }
 
@@ -181,7 +180,7 @@ function initSpeech() {
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
     recognition.onerror = (e) => {
-        if (e.error === 'not-allowed') showError("¡Error! Debes permitir el uso del micrófono en el candado de la barra de direcciones.");
+        if (e.error === 'not-allowed') showError("Debes permitir el micrófono en el candado de la barra de direcciones.");
     };
 }
 
@@ -189,10 +188,14 @@ btnStart.onclick = () => {
     if (!recognition) initSpeech();
     if (!isRecording) {
         recognition.lang = document.getElementById('langMode').value === 'es-EN' ? 'es-ES' : 'en-US';
-        recognition.start();
-        isRecording = true;
-        btnStart.innerText = "DETENER";
-        btnStart.classList.replace('bg-green-600', 'bg-red-600');
+        try {
+            recognition.start();
+            isRecording = true;
+            btnStart.innerText = "DETENER";
+            btnStart.classList.replace('bg-green-600', 'bg-red-600');
+        } catch (err) {
+            console.log("Ya estaba iniciado");
+        }
     } else {
         recognition.stop();
         isRecording = false;
@@ -203,11 +206,6 @@ btnStart.onclick = () => {
 
 sizeSlider.oninput = (e) => {
     translated.style.fontSize = `${e.target.value}vw`;
-};
-
-document.getElementById('btnFull').onclick = () => {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
 };
 </script>
 
