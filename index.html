@@ -15,6 +15,7 @@
         #controls { transition: opacity 0.3s ease; opacity: 0; }
         #controls:hover { opacity: 1; }
         .scroll-container { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 5%; text-align: center; }
+        .debug-panel { background: rgba(255,0,0,0.1); border: 1px solid red; color: #ff5555; padding: 10px; border-radius: 10px; font-size: 12px; margin-top: 20px; max-width: 80%; display: none; }
     </style>
 </head>
 <body>
@@ -32,7 +33,7 @@
         </select>
 
         <div class="flex flex-col ml-4">
-            <label class="text-[10px] uppercase text-gray-400">Tamaño</label>
+            <label class="text-[10px] uppercase text-gray-400">Tamaño del Texto</label>
             <input type="range" id="fontSizeSlider" min="5" max="25" value="13" class="w-32 accent-yellow-500">
         </div>
     </div>
@@ -49,11 +50,8 @@
     <div id="outputContainer" class="w-full">
         <div id="originalText" class="text-sub italic">Esperando voz del pastor...</div>
         <div id="translatedText" class="text-huge">BIENVENIDOS<span id="cursor" class="cursor-blink"></span></div>
+        <div id="debugLog" class="debug-panel"></div>
     </div>
-</div>
-
-<div id="notification" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-xl hidden z-50 shadow-2xl">
-    <p id="notifMessage"></p>
 </div>
 
 <script>
@@ -63,53 +61,55 @@ let currentInputLang = 'es-ES';
 const apiKeyInput = document.getElementById('apiKeyInput');
 const originalText = document.getElementById('originalText');
 const translatedText = document.getElementById('translatedText');
+const debugLog = document.getElementById('debugLog');
+
+function showDebug(msg) {
+    debugLog.innerText = "Detalle técnico: " + msg;
+    debugLog.style.display = "block";
+}
 
 async function translateWithAI(text) {
     const activeKey = apiKeyInput.value.trim();
     if (!activeKey || text.length < 2) return;
     
-    // Probamos diferentes rutas que Google suele usar
-    const endpoints = [
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`,
-        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${activeKey}`
-    ];
+    // Usamos el endpoint v1beta que es el más flexible para Gemini 1.5 Flash
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
 
     const prompt = `Translate the following church sermon text from ${currentInputLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. Maintain a respectful religious tone. Only return the translated text. TEXT: "${text}"`;
 
-    let success = false;
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
 
-    for (let url of endpoints) {
-        if (success) break;
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates[0]) {
-                const translated = result.candidates[0].content.parts[0].text;
-                translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
-                originalText.style.opacity = "0.3";
-                success = true;
-            }
-        } catch (e) {
-            console.error("Error en este endpoint, probando el siguiente...");
+        const result = await response.json();
+        
+        if (result.error) {
+            showDebug(result.error.message);
+            return;
         }
-    }
 
-    if (!success) {
-        showNotification("Google no responde. Verifica tu API Key o conexión.");
+        if (result.candidates && result.candidates[0]) {
+            const translated = result.candidates[0].content.parts[0].text;
+            translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
+            originalText.style.opacity = "0.3";
+            debugLog.style.display = "none"; // Ocultar si funciona
+        } else {
+            showDebug("Respuesta vacía de la IA.");
+        }
+    } catch (e) {
+        showDebug("Error de red: No se pudo conectar al servidor de Google.");
     }
 }
 
 function setupRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        showNotification("Navegador no compatible. Usa Chrome.");
+        alert("Navegador no compatible. Usa Chrome.");
         return;
     }
 
@@ -178,13 +178,6 @@ document.getElementById('btnFullscreen').onclick = () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
     else document.exitFullscreen();
 };
-
-function showNotification(msg) {
-    const notif = document.getElementById('notification');
-    document.getElementById('notifMessage').innerText = msg;
-    notif.classList.remove('hidden');
-    setTimeout(() => notif.classList.add('hidden'), 5000);
-}
 
 translatedText.style.fontSize = `${fontSizeSlider.value}vw`;
 </script>
