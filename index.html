@@ -105,9 +105,8 @@ let isRecording = false;
 
 function showError(msg) {
     console.error(msg);
-    errorBox.innerHTML = `<strong>Nota:</strong> ${msg}`;
+    errorBox.innerHTML = `<strong>Aviso:</strong> ${msg}`;
     errorBox.style.display = 'block';
-    setTimeout(() => { errorBox.style.display = 'none'; }, 10000);
 }
 
 async function translateText(text) {
@@ -120,10 +119,9 @@ async function translateText(text) {
 
     // Intentaremos con varias combinaciones de rutas y modelos
     const attempts = [
+        { ver: "v1beta", mod: "gemini-1.5-flash" },
         { ver: "v1", mod: "gemini-1.5-flash" },
-        { ver: "v1beta", mod: "gemini-pro" },
-        { ver: "v1", mod: "gemini-pro" },
-        { ver: "v1beta", mod: "gemini-1.5-flash" }
+        { ver: "v1beta", mod: "gemini-pro" }
     ];
 
     for (let attempt of attempts) {
@@ -148,14 +146,18 @@ async function translateText(text) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
                 errorBox.style.display = 'none';
-                return; // Éxito, salimos de la función
+                return; 
+            } else if (data.error) {
+                console.log(`Error con ${attempt.mod}: ${data.error.message}`);
+                // Si llegamos al último intento y falló, mostramos el error real
+                if (attempt === attempts[attempts.length - 1]) {
+                    showError(`Google dice: ${data.error.message}`);
+                }
             }
         } catch (e) {
-            console.log(`Fallo con ${attempt.mod} en ${attempt.ver}`);
+            console.log(`Fallo crítico en conexión con ${attempt.mod}`);
         }
     }
-
-    showError("Google no reconoció la llave o los modelos. Verifica que el proyecto esté activo en AI Studio.");
 }
 
 function initSpeech() {
