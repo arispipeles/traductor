@@ -120,7 +120,7 @@ const liveOriginal = document.getElementById('live-original');
 let translationHistory = ["", "", "", ""];
 let isProcessing = false;
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 4000; // Mínimo 4 segundos entre frases para no agotar la cuota
+const MIN_REQUEST_INTERVAL = 5000; // 5 segundos para máxima seguridad con cuenta gratuita
 let textBuffer = "";
 
 if(localStorage.getItem('church_key')) apiKeyInput.value = localStorage.getItem('church_key');
@@ -146,10 +146,10 @@ async function discoverModels() {
             modelSelect.innerHTML = '';
             data.models.forEach(m => {
                 if (m.supportedGenerationMethods.includes('generateContent')) {
-                    // Limpiamos el nombre para evitar errores de "Invalid Argument"
-                    const name = m.name.replace('models/', '');
-                    const opt = new Option(name, name);
-                    if (name === "gemini-1.5-flash") opt.selected = true;
+                    // Guardamos solo el ID limpio (ej: gemini-1.5-flash)
+                    const cleanName = m.name.split('/').pop();
+                    const opt = new Option(cleanName, cleanName);
+                    if (cleanName === "gemini-1.5-flash") opt.selected = true;
                     modelSelect.add(opt);
                 }
             });
@@ -167,29 +167,27 @@ function updateStatus(msg, color) {
 
 async function translateWithIA(text) {
     const key = apiKeyInput.value.trim();
-    let modelName = modelSelect.value || "gemini-1.5-flash";
+    // Aseguramos que el nombre esté limpio de prefijos 'models/'
+    let modelName = (modelSelect.value || "gemini-1.5-flash").split('/').pop();
     const mode = languageMode.value;
     const now = Date.now();
 
-    // Limpieza crítica para evitar el error "Invalid Argument"
-    modelName = modelName.replace('models/', '');
-
     if (!key || isProcessing || text.trim().length < 8) return;
 
-    // Control estricto de cuota temporal
-    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) return;
+    // Control de cuota para evitar el "Exceeded Quota"
+    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+        console.log("Esperando ventana de tiempo...");
+        return;
+    }
 
     isProcessing = true;
-    lastRequestTime = Date.now();
     updateStatus("Traduciendo...", "blue");
 
-    const source = mode === "es-EN" ? "Spanish" : "English";
     const target = mode === "es-EN" ? "English" : "Spanish";
-
-    const prompt = `Translate this church sermon to ${target}. Style: Solemn. NO explanations. ONLY the translation. TEXT: "${text}"`;
+    const prompt = `Direct translation to ${target} (church context). No talk, just text: "${text}"`;
 
     try {
-        // Usamos la URL v1beta con el nombre limpio del modelo
+        // URL corregida: el nombre del modelo va después de /models/ SIN repeticiones
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
         
         const response = await fetch(url, {
@@ -205,11 +203,10 @@ async function translateWithIA(text) {
             updateDisplay(result);
             updateStatus("En línea", "green");
             textBuffer = ""; 
+            lastRequestTime = Date.now(); // Solo actualizamos el tiempo si fue exitoso
         } else if (data.error) {
-            // Mostrar mensaje de error más largo para diagnóstico
-            const errorMsg = data.error.message || "Error desconocido";
-            updateStatus(errorMsg.substring(0, 35), "red");
-            console.error("Detalle Google:", data.error);
+            updateStatus(data.error.message.substring(0, 30), "red");
+            console.error("Error Google:", data.error);
         }
     } catch (e) {
         updateStatus("Error de red", "red");
