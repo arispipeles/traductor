@@ -73,7 +73,7 @@
 
 <div id="controls">
     <div class="flex flex-col gap-1">
-        <label class="text-[10px] text-gray-400 uppercase font-bold">1. Tu Google API Key</label>
+        <label class="text-[10px] text-gray-400 uppercase font-bold">1. Tu Google API Key (Segura)</label>
         <input type="password" id="apiKeyInput" placeholder="Pega aquí tu clave AIza..." class="bg-gray-900 text-yellow-500 px-4 py-2 rounded-lg border border-gray-700 w-64 focus:border-yellow-500 outline-none">
     </div>
     
@@ -134,17 +134,18 @@ async function translateText(text) {
         return;
     }
     
-    // Guardar clave localmente para la próxima vez
+    // Guardar clave localmente para la próxima vez (No en GitHub)
     localStorage.setItem('church_api_key', key);
 
     const isEsToEn = document.getElementById('langMode').value === 'es-EN';
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
+    // Intentamos PRIMERO con la versión ESTABLE v1 (Sin Beta)
     const attempts = [
-        { ver: "v1", mod: "gemini-1.5-flash" }, // La más estable para llaves nuevas
-        { ver: "v1", mod: "gemini-1.5-pro" },
-        { ver: "v1beta", mod: "gemini-1.5-flash" }
+        { ver: "v1", mod: "gemini-1.5-flash" }, // La más rápida y económica
+        { ver: "v1", mod: "gemini-1.5-pro" },   // La más potente
+        { ver: "v1beta", mod: "gemini-1.5-flash" } // Último recurso
     ];
 
     for (let attempt of attempts) {
@@ -169,7 +170,7 @@ async function translateText(text) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
                 errorBox.style.display = 'none'; 
-                return; 
+                return; // Éxito: salimos del bucle
             } else if (data.error) {
                 console.warn(`Intento fallido con ${attempt.mod}: ${data.error.message}`);
                 // Solo mostramos el error si es el último intento
