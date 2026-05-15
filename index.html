@@ -1,9 +1,9 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traductor de Iglesia Pro - IA</title>
+    <title>Traductor Pro Iglesia - IA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
@@ -16,7 +16,7 @@
             margin: 0;
         }
         .text-huge {
-            font-size: clamp(2rem, 12vw, 20rem);
+            font-size: clamp(2rem, 13vw, 22rem);
             line-height: 1.1;
             font-weight: 900;
             text-transform: uppercase;
@@ -35,13 +35,8 @@
             margin-left: 10px;
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        
-        #controls {
-            transition: opacity 0.3s ease;
-            opacity: 0;
-        }
+        #controls { transition: opacity 0.3s ease; opacity: 0; }
         #controls:hover { opacity: 1; }
-        
         .scroll-container {
             height: 100vh;
             display: flex;
@@ -68,7 +63,7 @@
         </select>
 
         <div class="flex flex-col ml-4">
-            <label class="text-[10px] uppercase text-gray-400">Tamaño de letra</label>
+            <label class="text-[10px] uppercase text-gray-400">Tamaño</label>
             <input type="range" id="fontSizeSlider" min="5" max="25" value="13" class="w-32 accent-yellow-500">
         </div>
     </div>
@@ -83,13 +78,8 @@
 
 <div class="scroll-container">
     <div id="outputContainer" class="w-full">
-        <div id="originalText" class="text-sub italic">
-            Esperando voz del pastor...
-        </div>
-        <div id="translatedText" class="text-huge">
-            BIENVENIDOS
-            <span id="cursor" class="cursor-blink"></span>
-        </div>
+        <div id="originalText" class="text-sub italic">Esperando voz...</div>
+        <div id="translatedText" class="text-huge">BIENVENIDOS<span id="cursor" class="cursor-blink"></span></div>
     </div>
 </div>
 
@@ -105,52 +95,37 @@ const apiKeyInput = document.getElementById('apiKeyInput');
 const originalText = document.getElementById('originalText');
 const translatedText = document.getElementById('translatedText');
 
-// Lista de modelos a intentar en orden de prioridad
-const modelOptions = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-pro"
-];
-
 async function translateWithAI(text) {
     const activeKey = apiKeyInput.value.trim();
     if (!activeKey || text.length < 2) return;
     
-    const prompt = `Translate the following church sermon text from ${currentInputLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. 
-    Maintain a respectful and natural religious tone. 
-    TEXT: "${text}"
-    Only return the translated text.`;
-
-    // Intentamos con varios modelos hasta que uno responda
-    for (const modelName of modelOptions) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
-
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates[0]) {
-                const translated = result.candidates[0].content.parts[0].text;
-                translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
-                originalText.style.opacity = "0.3";
-                return; // Éxito, salimos de la función
-            } else if (result.error) {
-                console.warn(`Modelo ${modelName} falló:`, result.error.message);
-                // Continuamos al siguiente modelo en el bucle
-            }
-        } catch (error) {
-            console.error(`Error con ${modelName}:`, error);
-        }
-    }
+    // Usamos el endpoint más estable para Gemini 1.5 Flash
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
     
-    showNotification("No se pudo conectar con la IA. Revisa tu conexión.");
+    const prompt = `Translate the following church sermon text from ${currentInputLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. Maintain a respectful religious tone. Only return the translated text. TEXT: "${text}"`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.candidates && result.candidates[0]) {
+            const translated = result.candidates[0].content.parts[0].text;
+            translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
+            originalText.style.opacity = "0.3";
+        } else if (result.error) {
+            // Mostramos el error real para saber qué pasa
+            showNotification("Google dice: " + result.error.message);
+        }
+    } catch (error) {
+        showNotification("Error de red. ¿Tienes internet?");
+    }
 }
 
 function setupRecognition() {
@@ -168,13 +143,9 @@ function setupRecognition() {
     recognition.onresult = (event) => {
         let interim = '';
         let final = '';
-
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-                final += event.results[i][0].transcript;
-            } else {
-                interim += event.results[i][0].transcript;
-            }
+            if (event.results[i].isFinal) final += event.results[i][0].transcript;
+            else interim += event.results[i][0].transcript;
         }
 
         if (final) {
@@ -187,7 +158,7 @@ function setupRecognition() {
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
-    recognition.onerror = (e) => { if(e.error !== 'no-speech') console.error(e); };
+    recognition.onerror = (e) => { if(e.error === 'not-allowed') showNotification("Permiso de micrófono denegado."); };
 }
 
 const btnStart = document.getElementById('btnStart');
@@ -198,7 +169,6 @@ const fontSizeSlider = document.getElementById('fontSizeSlider');
 
 btnStart.onclick = () => {
     if (!recognition) setupRecognition();
-
     if (!isRecording) {
         recognition.lang = currentInputLang;
         recognition.start();
@@ -206,20 +176,18 @@ btnStart.onclick = () => {
         btnStart.classList.replace('bg-green-600', 'bg-red-600');
         statusIcon.classList.add('animate-ping');
         btnLabel.innerText = "DETENER";
-        showNotification("Escuchando... Hable ahora.");
-        setTimeout(() => document.getElementById('notification').classList.add('hidden'), 2000);
     } else {
         recognition.stop();
         isRecording = false;
         btnStart.classList.replace('bg-red-600', 'bg-green-600');
         statusIcon.classList.remove('animate-ping');
-        btnLabel.innerText = "INICIAR SERMÓN";
+        btnLabel.innerText = "INICIAR";
     }
 };
 
 langMode.onchange = (e) => {
     currentInputLang = (e.target.value === 'es-EN') ? 'es-ES' : 'en-US';
-    if (isRecording) { recognition.stop(); }
+    if (isRecording) recognition.stop();
 };
 
 fontSizeSlider.oninput = (e) => {
@@ -238,9 +206,8 @@ function showNotification(msg) {
     setTimeout(() => notif.classList.add('hidden'), 5000);
 }
 
-// Tamaño inicial
+// Escala inicial
 translatedText.style.fontSize = `${fontSizeSlider.value}vw`;
 </script>
-
 </body>
 </html>
