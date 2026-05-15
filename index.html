@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traductor Iglesia - Panel de Control Pro</title>
+    <title>Traductor Iglesia - Buscador Automático</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap" rel="stylesheet">
     <style>
@@ -12,11 +12,9 @@
         .cursor-blink { animation: blink 1s infinite; border-left: 15px solid #fbbf24; margin-left: 10px; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         
-        /* Panel superior siempre visible para configurar */
-        #admin-panel { background: #1a1a1a; border-bottom: 2px solid #333; padding: 15px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center; position: relative; z-index: 1000; }
-        .model-btn { background: #333; color: white; padding: 8px 15px; rounded: 8px; font-size: 12px; border: 1px solid #444; transition: all 0.2s; }
-        .model-btn.active { background: #fbbf24; color: black; font-weight: bold; border-color: #fff; }
-        .error-log { background: #450a0a; color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 10px; width: 100%; text-align: center; display: none; }
+        #admin-panel { background: #1a1a1a; border-bottom: 2px solid #333; padding: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center; position: relative; z-index: 1000; }
+        .error-log { background: #450a0a; color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 14px; margin-top: 10px; width: 100%; text-align: center; display: none; border: 1px solid #f87171; }
+        .success-log { background: #064e3b; color: #a7f3d0; padding: 10px; border-radius: 8px; font-size: 14px; margin-top: 10px; width: 100%; text-align: center; display: none; }
     </style>
 </head>
 <body>
@@ -27,84 +25,114 @@
         <input type="password" id="apiKeyInput" placeholder="Pega tu clave AIza..." class="bg-black text-yellow-500 px-3 py-2 rounded border border-gray-700 w-64 outline-none focus:border-yellow-500">
     </div>
 
+    <!-- BOTÓN AZUL DE BÚSQUEDA -->
+    <button onclick="discoverModels()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95">
+        🔎 BUSCAR MODELOS DISPONIBLES
+    </button>
+
     <div class="flex flex-col">
-        <label class="text-[10px] text-gray-400 font-bold uppercase">2. Selecciona Modelo:</label>
-        <div class="flex gap-2">
-            <button onclick="setModel('gemini-1.5-flash', this)" class="model-btn active">Flash 1.5</button>
-            <button onclick="setModel('gemini-1.5-flash-latest', this)" class="model-btn">Flash Latest</button>
-            <button onclick="setModel('gemini-1.5-pro', this)" class="model-btn">Pro 1.5</button>
-            <button onclick="setModel('gemini-pro', this)" class="model-btn">Pro 1.0</button>
-        </div>
+        <label class="text-[10px] text-gray-400 font-bold uppercase">2. Modelo Detectado:</label>
+        <select id="modelSelect" class="bg-black text-white px-3 py-2 rounded border border-gray-700 w-48 outline-none">
+            <option value="gemini-1.5-flash">Esperando búsqueda...</option>
+        </select>
     </div>
 
-    <div class="flex items-center gap-4 ml-4">
-        <button id="btnStart" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-full font-bold transition-all active:scale-95 shadow-lg shadow-green-900/40">INICIAR MICRÓFONO</button>
-        <div class="flex flex-col">
-            <label class="text-[10px] text-gray-400 font-bold uppercase">Tamaño:</label>
-            <input type="range" id="sizeSlider" min="5" max="20" value="12" class="w-24 accent-yellow-500">
-        </div>
-    </div>
+    <button id="btnStart" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-full font-bold transition-all shadow-lg ml-4">INICIAR MICRÓFONO</button>
 
-    <div id="errorBox" class="error-log"></div>
+    <div id="statusBox" class="error-log"></div>
+    <div id="successBox" class="success-log"></div>
 </div>
 
-<div class="flex flex-col justify-center items-center" style="height: calc(100vh - 100px);">
-    <div id="original" class="text-white opacity-30 text-2xl italic mb-6 h-10 px-10 text-center">Esperando voz...</div>
+<div class="flex flex-col justify-center items-center" style="height: calc(100vh - 120px);">
+    <div id="original" class="text-white opacity-30 text-2xl italic mb-6 h-10 px-10 text-center">Configura la llave y busca modelos...</div>
     <div id="translated" class="text-huge">HOLA<span class="cursor-blink"></span></div>
 </div>
 
 <script>
-let selectedModel = 'gemini-1.5-flash';
 const apiKeyInput = document.getElementById('apiKeyInput');
+const modelSelect = document.getElementById('modelSelect');
+const statusBox = document.getElementById('statusBox');
+const successBox = document.getElementById('successBox');
 const translated = document.getElementById('translated');
 const original = document.getElementById('original');
-const errorBox = document.getElementById('errorBox');
-const sizeSlider = document.getElementById('sizeSlider');
 
-// Cargar llave guardada
+// Cargar llave si existe
 if(localStorage.getItem('church_key')) {
     apiKeyInput.value = localStorage.getItem('church_key');
 }
 
-function setModel(name, btn) {
-    selectedModel = name;
-    // Estética de los botones
-    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    console.log("Cambiado a:", selectedModel);
+async function discoverModels() {
+    const key = apiKeyInput.value.trim();
+    if (!key) {
+        showError("Por favor, pega tu API Key primero.");
+        return;
+    }
+    
+    localStorage.setItem('church_key', key);
+    showError(null);
+    showSuccess("Buscando modelos en Google...");
+
+    try {
+        // Consultamos a Google qué modelos tiene permitidos esta llave
+        const url = `https://generativelanguage.googleapis.com/v1/models?key=${key}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+            showError("Google dice: " + data.error.message);
+            return;
+        }
+
+        if (data.models && data.models.length > 0) {
+            // Limpiamos el selector
+            modelSelect.innerHTML = '';
+            
+            // Buscamos modelos que soporten generación de contenido
+            const validModels = data.models.filter(m => m.supportedGenerationMethods.includes('generateContent'));
+            
+            validModels.forEach(m => {
+                const name = m.name.replace('models/', '');
+                const option = document.createElement('option');
+                option.value = name;
+                option.text = name;
+                modelSelect.appendChild(option);
+            });
+
+            showSuccess(`¡Éxito! Encontrados ${validModels.length} modelos. Selecciona uno y habla.`);
+            original.innerText = "Listo para traducir. Habla ahora.";
+        } else {
+            showError("No se encontraron modelos disponibles para esta cuenta.");
+        }
+    } catch (e) {
+        showError("Error de conexión. Revisa tu internet.");
+    }
 }
 
 async function translateText(text) {
     const key = apiKeyInput.value.trim();
-    if (!key || text.trim().length < 2) return;
-    
-    localStorage.setItem('church_key', key);
-    errorBox.style.display = 'none';
+    const model = modelSelect.value;
+    if (!key || !model || text.trim().length < 2) return;
 
     // Usamos la ruta ESTABLE (v1)
-    const url = `https://generativelanguage.googleapis.com/v1/models/${selectedModel}:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
 
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: `Translate to English (Church context, direct translation): ${text}` }] }]
+                contents: [{ parts: [{ text: `Translate to English (Church sermon context, maintain solemnity): ${text}` }] }]
             })
         });
 
         const data = await response.json();
         
-        if (data.error) {
-            errorBox.innerText = `Error con ${selectedModel}: ${data.error.message}`;
-            errorBox.style.display = 'block';
-        } else if (data.candidates && data.candidates[0].content) {
+        if (data.candidates && data.candidates[0].content) {
             const result = data.candidates[0].content.parts[0].text;
             translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
         }
     } catch (e) {
-        errorBox.innerText = "Error de red. Revisa tu conexión.";
-        errorBox.style.display = 'block';
+        console.error("Error en traducción:", e);
     }
 }
 
@@ -114,7 +142,7 @@ let isRecording = false;
 function initSpeech() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        alert("Usa Google Chrome en tu Mac.");
+        showError("Usa Google Chrome en tu Mac.");
         return;
     }
 
@@ -157,9 +185,17 @@ document.getElementById('btnStart').onclick = () => {
     }
 };
 
-sizeSlider.oninput = (e) => {
-    translated.style.fontSize = `${e.target.value}vw`;
-};
+function showError(msg) {
+    statusBox.innerText = msg;
+    statusBox.style.display = msg ? 'block' : 'none';
+    if(msg) successBox.style.display = 'none';
+}
+
+function showSuccess(msg) {
+    successBox.innerText = msg;
+    successBox.style.display = msg ? 'block' : 'none';
+    if(msg) statusBox.style.display = 'none';
+}
 </script>
 </body>
 </html>
