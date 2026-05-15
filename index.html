@@ -11,7 +11,7 @@
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #000; 
-            color: #fbbf24; /* Amarillo vibrante */
+            color: #fbbf24; /* Amarillo vibrante para el televisor */
             overflow: hidden; 
             height: 100vh; 
             margin: 0; 
@@ -93,6 +93,7 @@
 <div id="errorBox" class="error-log"></div>
 
 <script>
+/* */
 let recognition;
 let isRecording = false;
 
@@ -110,6 +111,7 @@ function showError(msg) {
     setTimeout(() => { errorBox.style.display = 'none'; }, 10000);
 }
 
+/* */
 async function translateText(text) {
     if (text.trim().length < 2) return;
     
@@ -151,6 +153,7 @@ async function translateText(text) {
     }
 }
 
+/* */
 function initSpeech() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
@@ -184,6 +187,7 @@ function initSpeech() {
     };
 }
 
+/* */
 btnStart.onclick = () => {
     if (!recognition) initSpeech();
     if (!isRecording) {
