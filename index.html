@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Church Translator - Final Edition</title>
+    <title>AI Church Translator - Final Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap" rel="stylesheet">
     <style>
@@ -117,11 +117,11 @@ async function translateText(text) {
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
-    // Intentaremos con varias combinaciones de rutas y modelos
     const attempts = [
         { ver: "v1beta", mod: "gemini-1.5-flash" },
         { ver: "v1", mod: "gemini-1.5-flash" },
-        { ver: "v1beta", mod: "gemini-pro" }
+        { ver: "v1beta", mod: "gemini-pro" },
+        { ver: "v1", mod: "gemini-pro" }
     ];
 
     for (let attempt of attempts) {
@@ -146,7 +146,7 @@ async function translateText(text) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
                 errorBox.style.display = 'none';
-                return; 
+                return; // Éxito, salimos de la función
             } else if (data.error) {
                 console.log(`Error con ${attempt.mod}: ${data.error.message}`);
                 // Si llegamos al último intento y falló, mostramos el error real
