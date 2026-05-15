@@ -10,7 +10,7 @@
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #000; 
-            color: #fbbf24; /* Amarillo vibrante para el TV de 75" */
+            color: #fbbf24; 
             overflow: hidden; 
             height: 100vh; 
             margin: 0; 
@@ -118,7 +118,7 @@ async function translateText(text) {
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
-    // LISTA ACTUALIZADA 2024: Estos son los nombres que Google acepta ahora
+    // Esta lista prueba primero las versiones más estables y aceptadas por Google en 2024/2025
     const attempts = [
         { ver: "v1", mod: "gemini-1.5-flash" },
         { ver: "v1beta", mod: "gemini-1.5-flash" },
@@ -148,9 +148,10 @@ async function translateText(text) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
                 errorBox.style.display = 'none';
-                return; // Éxito
+                return; // Éxito total
             } else if (data.error) {
-                console.log(`Intento fallido con ${attempt.mod}: ${data.error.message}`);
+                console.log(`Intento fallido con ${attempt.mod} en ${attempt.ver}: ${data.error.message}`);
+                // Si llegamos al último intento y falla, mostramos el error
                 if (attempt === attempts[attempts.length - 1]) {
                     showError(`Google dice: ${data.error.message}`);
                 }
