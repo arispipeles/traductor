@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -69,7 +69,7 @@
 
         <div class="flex flex-col ml-4">
             <label class="text-[10px] uppercase text-gray-400">Tamaño de letra</label>
-            <input type="range" id="fontSizeSlider" min="5" max="25" value="12" class="w-32 accent-yellow-500">
+            <input type="range" id="fontSizeSlider" min="5" max="25" value="13" class="w-32 accent-yellow-500">
         </div>
     </div>
 
@@ -84,7 +84,7 @@
 <div class="scroll-container">
     <div id="outputContainer" class="w-full">
         <div id="originalText" class="text-sub italic">
-            Esperando voz...
+            Esperando voz del pastor...
         </div>
         <div id="translatedText" class="text-huge">
             BIENVENIDOS
@@ -105,41 +105,52 @@ const apiKeyInput = document.getElementById('apiKeyInput');
 const originalText = document.getElementById('originalText');
 const translatedText = document.getElementById('translatedText');
 
+// Lista de modelos a intentar en orden de prioridad
+const modelOptions = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-pro"
+];
+
 async function translateWithAI(text) {
     const activeKey = apiKeyInput.value.trim();
     if (!activeKey || text.length < 2) return;
     
-    // Prompt específico para contexto de iglesia
     const prompt = `Translate the following church sermon text from ${currentInputLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. 
     Maintain a respectful and natural religious tone. 
     TEXT: "${text}"
-    Only return the translation.`;
+    Only return the translated text.`;
 
-    try {
-        // CAMBIO CRÍTICO: Usando v1beta y el modelo exacto que suele estar disponible
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
+    // Intentamos con varios modelos hasta que uno responda
+    for (const modelName of modelOptions) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
 
-        const result = await response.json();
-        
-        if (result.error) {
-            throw new Error(result.error.message);
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates[0]) {
+                const translated = result.candidates[0].content.parts[0].text;
+                translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
+                originalText.style.opacity = "0.3";
+                return; // Éxito, salimos de la función
+            } else if (result.error) {
+                console.warn(`Modelo ${modelName} falló:`, result.error.message);
+                // Continuamos al siguiente modelo en el bucle
+            }
+        } catch (error) {
+            console.error(`Error con ${modelName}:`, error);
         }
-        
-        const translated = result.candidates?.[0]?.content?.parts?.[0]?.text || "No se pudo traducir";
-        translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
-        originalText.style.opacity = "0.3";
-    } catch (error) {
-        console.error("AI Error:", error);
-        showNotification("⚠️ IA dice: " + error.message);
     }
+    
+    showNotification("No se pudo conectar con la IA. Revisa tu conexión.");
 }
 
 function setupRecognition() {
@@ -227,7 +238,7 @@ function showNotification(msg) {
     setTimeout(() => notif.classList.add('hidden'), 5000);
 }
 
-// Escala inicial según el slider
+// Tamaño inicial
 translatedText.style.fontSize = `${fontSizeSlider.value}vw`;
 </script>
 
