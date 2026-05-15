@@ -35,7 +35,7 @@
             width: 100%;
         }
 
-        /* Degradado de historia para que se vea como subtítulos reales */
+        /* Efecto de profundidad para los subtítulos */
         .line-0 { opacity: 1; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
         .line-1 { opacity: 0.6; transform: scale(0.95); color: #f59e0b; }
         .line-2 { opacity: 0.3; transform: scale(0.9); color: #d97706; }
@@ -121,10 +121,9 @@ const sizeSlider = document.getElementById('sizeSlider');
 const liveOriginal = document.getElementById('live-original');
 
 let translationHistory = ["", "", "", ""];
-let lastProcessedText = ""; 
 let isProcessing = false;
 
-// Recuperar llave guardada
+// Recuperar llave guardada para comodidad
 if(localStorage.getItem('church_key')) apiKeyInput.value = localStorage.getItem('church_key');
 
 function togglePanel() { document.getElementById('admin-panel').classList.toggle('hidden-panel'); }
@@ -156,8 +155,11 @@ async function discoverModels() {
                 }
             });
             updateLog("Modelos cargados", "bg-green-500");
-        } else { updateLog("Error de API", "bg-red-500"); }
-    } catch (e) { updateLog("Sin conexión", "bg-red-500"); }
+        } else { 
+            const errorMsg = data.error ? data.error.message : "Error de API";
+            updateLog(errorMsg, "bg-red-500"); 
+        }
+    } catch (e) { updateLog("Sin conexión con Google", "bg-red-500"); }
 }
 
 function updateLog(msg, colorClass) {
@@ -167,7 +169,7 @@ function updateLog(msg, colorClass) {
 
 async function translateChunk(text) {
     const key = apiKeyInput.value.trim();
-    const model = modelSelect.value || "gemini-1.5-flash"; // Fallback por si no buscaron modelos
+    const model = modelSelect.value || "gemini-1.5-flash"; 
     const mode = languageMode.value;
     
     if (!key || isProcessing || text.trim().split(' ').length < 2) return;
@@ -179,10 +181,11 @@ async function translateChunk(text) {
     const targetLang = mode === "es-EN" ? "English" : "Spanish";
 
     const prompt = `Translate exactly this ${sourceLang} church sermon segment to ${targetLang}. 
-    Maintain a sacred and solemn tone. ONLY output the translation. No notes. 
+    Maintain a sacred and solemn tone. ONLY output the translation. No notes. No explanations. 
     TEXT: "${text}"`;
 
     try {
+        // Intentamos con v1beta que es la más flexible
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
         const response = await fetch(url, {
             method: 'POST',
@@ -196,8 +199,8 @@ async function translateChunk(text) {
             updateDisplay(result);
             updateLog("En línea", "bg-green-500");
         } else {
-            console.error("Respuesta vacía de Google:", data);
-            updateLog("Google no respondió", "bg-orange-500");
+            const errorDetail = data.error ? data.error.message : "Google no respondió correctamente";
+            updateLog(errorDetail, "bg-orange-500");
         }
     } catch (e) { 
         console.error("Error IA:", e);
@@ -208,7 +211,6 @@ async function translateChunk(text) {
 }
 
 function updateDisplay(newText) {
-    // Si la traducción es idéntica a la última, no la repetimos
     if (newText === translationHistory[0]) return;
     
     translationHistory.unshift(newText);
@@ -246,17 +248,20 @@ function initRecognition() {
         
         liveOriginal.innerText = interim || final;
 
-        // Lógica PowerPoint: Traducir mientras habla
+        // Traducir bloques de texto para que sea fluido
         if (final) {
             translateChunk(final);
         } else if (interim.split(' ').length > 8) { 
-            // Si el pastor habla mucho sin pausar, traducimos el "bloque" actual
+            // Si el pastor habla mucho sin hacer pausa final, enviamos el bloque
             if (!isProcessing) translateChunk(interim);
         }
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
-    recognition.onerror = (e) => { console.error("Error micro:", e.error); };
+    recognition.onerror = (e) => { 
+        console.error("Error micro:", e.error); 
+        if(e.error === 'not-allowed') updateLog("Permiso de micro denegado", "bg-red-500");
+    };
 }
 
 document.getElementById('btnStart').onclick = () => {
@@ -280,11 +285,12 @@ document.getElementById('btnStart').onclick = () => {
     }
 };
 
-// Reiniciar si cambian de idioma
+// Cambiar idioma reinicia el micro automáticamente
 languageMode.onchange = () => {
     if (isRecording) { recognition.stop(); setTimeout(() => document.getElementById('btnStart').click(), 400); }
 };
 
+// Inicializar tamaño
 sizeSlider.oninput();
 </script>
 </body>
