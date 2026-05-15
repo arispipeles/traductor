@@ -150,12 +150,10 @@ async function discoverModels() {
         if (data.models) {
             modelSelect.innerHTML = '';
             data.models.forEach(m => {
-                // Solo mostrar modelos que sirvan para generar contenido
                 if (m.supportedGenerationMethods.includes('generateContent')) {
                     const name = m.name.replace('models/', '');
                     const opt = new Option(name, name);
-                    // Priorizamos Gemini 2.0 Flash o 1.5 Flash por velocidad
-                    if (name.includes('2.0-flash') || name.includes('1.5-flash')) opt.selected = true;
+                    if (name.includes('flash')) opt.selected = true;
                     modelSelect.add(opt);
                 }
             });
@@ -171,7 +169,7 @@ async function translateChunk(text) {
     const model = modelSelect.value;
     const mode = languageMode.value; // es-EN o en-ES
     
-    if (!key || !model || text === lastTranslatedText) return;
+    if (!key || !model || text === lastTranslatedText || text.trim().length < 2) return;
     
     lastTranslatedText = text;
     
@@ -193,8 +191,10 @@ async function translateChunk(text) {
         });
 
         const data = await response.json();
-        const result = data.candidates[0].content.parts[0].text.trim();
-        updateDisplay(result);
+        if (data.candidates && data.candidates[0]) {
+            const result = data.candidates[0].content.parts[0].text.trim();
+            updateDisplay(result);
+        }
     } catch (e) {
         console.error("Error IA");
     }
@@ -218,7 +218,6 @@ function initRecognition() {
     recognition.continuous = true;
     recognition.interimResults = true;
     
-    // Cambiamos el idioma del micro según el selector
     const mode = languageMode.value;
     recognition.lang = (mode === "es-EN") ? 'es-ES' : 'en-US';
 
@@ -230,7 +229,6 @@ function initRecognition() {
             else interim += event.results[i][0].transcript;
         }
         
-        // Diagnóstico: Esto te muestra qué está escuchando el micro
         liveOriginal.innerText = interim || final;
 
         if (final) {
@@ -251,7 +249,7 @@ document.getElementById('btnStart').onclick = () => {
         document.getElementById('btnStart').innerText = "2. INICIAR MICRO";
         document.getElementById('btnStart').classList.replace('bg-red-700', 'bg-green-700');
     } else {
-        initRecognition(); // Reiniciamos para aplicar cambios de idioma si los hubo
+        initRecognition();
         recognition.start();
         isRecording = true;
         document.getElementById('btnStart').innerText = "DETENER";
@@ -259,7 +257,6 @@ document.getElementById('btnStart').onclick = () => {
     }
 };
 
-// Si cambian el idioma mientras está encendido, reiniciamos para aplicar el cambio de micro
 languageMode.onchange = () => {
     if (isRecording) {
         recognition.stop();
