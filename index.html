@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Church Translator - Final Pro</title>
+    <title>AI Church Translator - Pro Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap" rel="stylesheet">
     <style>
@@ -23,7 +23,7 @@
             text-align: center;
             word-wrap: break-word;
             padding: 0 5%;
-            text-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
         }
         .cursor-blink { 
             animation: blink 1s infinite; 
@@ -38,53 +38,65 @@
             position: fixed; 
             top: 0; 
             width: 100%; 
-            background: rgba(20, 20, 20, 0.95); 
-            padding: 15px; 
+            background: rgba(15, 15, 15, 0.98); 
+            padding: 20px; 
             z-index: 100; 
             display: flex; 
+            flex-wrap: wrap;
             gap: 15px; 
             align-items: center; 
             justify-content: center; 
-            border-bottom: 2px solid #333; 
+            border-bottom: 2px solid #fbbf24; 
         }
         #controls:hover { opacity: 1; }
+        
         .error-log {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            background: #7f1d1d;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 15px;
+            background: #450a0a;
+            color: #fca5a5;
+            padding: 15px 30px;
+            border-radius: 20px;
             display: none;
-            font-size: 14px;
+            font-size: 16px;
             z-index: 200;
             text-align: center;
-            max-width: 80%;
+            max-width: 90%;
             border: 2px solid #ef4444;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
     </style>
 </head>
 <body>
 
 <div id="controls">
-    <button id="btnStart" class="bg-green-600 hover:bg-green-500 px-8 py-3 rounded-full font-bold text-white transition-all transform active:scale-95">INICIAR MICRO</button>
-    <select id="langMode" class="bg-gray-800 text-white px-4 py-2 rounded-xl border border-gray-600 outline-none">
-        <option value="es-EN">Español ➔ Inglés</option>
-        <option value="en-ES">Inglés ➔ Español</option>
-    </select>
-    <div class="flex items-center gap-2">
-        <span class="text-xs text-gray-400">Tamaño:</span>
-        <input type="range" id="sizeSlider" min="5" max="25" value="14" class="w-32 accent-yellow-500">
+    <div class="flex flex-col gap-1">
+        <label class="text-[10px] text-gray-400 uppercase font-bold">1. Tu Google API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="Pega aquí tu clave AIza..." class="bg-gray-900 text-yellow-500 px-4 py-2 rounded-lg border border-gray-700 w-64 focus:border-yellow-500 outline-none">
     </div>
-    <input type="password" id="apiKeyInput" value="AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw" class="bg-gray-900 text-[10px] text-gray-500 px-2 py-1 rounded border border-gray-700 w-40">
+    
+    <div class="flex flex-col gap-1">
+        <label class="text-[10px] text-gray-400 uppercase font-bold">2. Idioma</label>
+        <select id="langMode" class="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-600 outline-none">
+            <option value="es-EN">Español ➔ Inglés</option>
+            <option value="en-ES">Inglés ➔ Español</option>
+        </select>
+    </div>
+
+    <button id="btnStart" class="bg-green-600 hover:bg-green-500 px-10 py-3 mt-4 rounded-full font-bold text-white transition-all transform active:scale-95 shadow-lg">INICIAR MICRÓFONO</button>
+    
+    <div class="flex items-center gap-3 ml-4 mt-4">
+        <span class="text-xs text-gray-400">Tamaño:</span>
+        <input type="range" id="sizeSlider" min="5" max="30" value="14" class="w-32 accent-yellow-500">
+    </div>
 </div>
 
 <div class="flex flex-col justify-center items-center h-screen">
-    <div id="original" class="text-white opacity-20 text-3xl italic mb-6 h-10 text-center px-10"></div>
+    <div id="original" class="text-white opacity-30 text-3xl italic mb-8 h-10 text-center px-10"></div>
     <div id="translated" class="text-huge">
-        LISTO
+        SISTEMA LISTO
         <span class="cursor-blink"></span>
     </div>
 </div>
@@ -102,9 +114,14 @@ const apiKeyInput = document.getElementById('apiKeyInput');
 let recognition;
 let isRecording = false;
 
+// Cargar la clave si ya se guardó antes en este Mac
+if(localStorage.getItem('church_api_key')) {
+    apiKeyInput.value = localStorage.getItem('church_api_key');
+}
+
 function showError(msg) {
     console.error(msg);
-    errorBox.innerHTML = `<strong>Aviso:</strong> ${msg}`;
+    errorBox.innerHTML = `<strong>Aviso de Google:</strong> ${msg}`;
     errorBox.style.display = 'block';
 }
 
@@ -112,16 +129,22 @@ async function translateText(text) {
     if (text.trim().length < 2) return;
     
     const key = apiKeyInput.value.trim();
+    if (!key) {
+        showError("Por favor, pega tu API Key en la parte superior (pasa el mouse arriba).");
+        return;
+    }
+    
+    // Guardar clave localmente para la próxima vez
+    localStorage.setItem('church_api_key', key);
+
     const isEsToEn = document.getElementById('langMode').value === 'es-EN';
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
-    // Esta lista prueba primero las versiones más estables (v1) y los modelos más recientes (1.5)
     const attempts = [
-        { ver: "v1", mod: "gemini-1.5-flash" },
+        { ver: "v1", mod: "gemini-1.5-flash" }, // La más estable para llaves nuevas
         { ver: "v1", mod: "gemini-1.5-pro" },
-        { ver: "v1beta", mod: "gemini-1.5-flash" },
-        { ver: "v1beta", mod: "gemini-1.5-pro" }
+        { ver: "v1beta", mod: "gemini-1.5-flash" }
     ];
 
     for (let attempt of attempts) {
@@ -134,7 +157,7 @@ async function translateText(text) {
                 body: JSON.stringify({
                     contents: [{
                         parts: [{
-                            text: `Translate this sermon precisely from ${source} to ${target}. Maintain religious tone. ONLY output the translation: "${text}"`
+                            text: `Translate this sermon precisely from ${source} to ${target}. Religious tone. ONLY output the translation: "${text}"`
                         }]
                     }]
                 })
@@ -145,17 +168,17 @@ async function translateText(text) {
             if (data.candidates && data.candidates[0].content) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
-                errorBox.style.display = 'none'; // Limpiamos errores previos si logramos conectar
-                return; // ÉXITO: Salimos de la función
+                errorBox.style.display = 'none'; 
+                return; 
             } else if (data.error) {
-                console.warn(`Fallo en ${attempt.ver}/${attempt.mod}: ${data.error.message}`);
-                // Si llegamos al último intento y todos fallaron, mostramos el error final
+                console.warn(`Intento fallido con ${attempt.mod}: ${data.error.message}`);
+                // Solo mostramos el error si es el último intento
                 if (attempt === attempts[attempts.length - 1]) {
-                    showError(`Google dice: ${data.error.message}`);
+                    showError(data.error.message);
                 }
             }
         } catch (e) {
-            console.warn("Error de red en este intento, probando siguiente...");
+            console.warn("Error de conexión, probando siguiente modelo...");
         }
     }
 }
@@ -163,7 +186,7 @@ async function translateText(text) {
 function initSpeech() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        showError("Usa Google Chrome en tu Mac para que el micrófono funcione.");
+        showError("Usa Google Chrome. El sistema de voz no es compatible con este navegador.");
         return;
     }
 
@@ -189,7 +212,7 @@ function initSpeech() {
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
     recognition.onerror = (e) => {
-        if (e.error === 'not-allowed') showError("¡Activa el micrófono en el candado arriba a la izquierda!");
+        if (e.error === 'not-allowed') showError("¡Activa el micrófono en el candado arriba a la izquierda de la dirección URL!");
     };
 }
 
@@ -206,7 +229,7 @@ btnStart.onclick = () => {
     } else {
         recognition.stop();
         isRecording = false;
-        btnStart.innerText = "INICIAR MICRO";
+        btnStart.innerText = "INICIAR MICRÓFONO";
         btnStart.classList.replace('bg-red-600', 'bg-green-600');
     }
 };
