@@ -3,194 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traductor Pro Iglesia</title>
+    <title>Traductor Iglesia Pro</title>
     <style>
-        body { margin: 0; background-color: black; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
-        #config-panel { background: #1a1a1a; padding: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 2px solid #333; }
-        input, select, button { padding: 8px; border-radius: 5px; border: none; font-size: 14px; }
-        button { cursor: pointer; font-weight: bold; }
-        .btn-start { background: #28a745; color: white; }
-        .btn-stop { background: #dc3545; color: white; }
-        
-        #status-bar { position: fixed; top: 18px; right: 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px; }
-        .dot { width: 12px; height: 12px; border-radius: 50%; background: gray; }
-        
-        #display-area { height: calc(100vh - 80px); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box; text-align: center; }
-        #interim-text { color: #888; font-size: 26px; margin-bottom: 30px; min-height: 1.2em; max-width: 80%; font-style: italic; }
-        #translated-text { color: #FFD700; font-weight: bold; line-height: 1.3; text-shadow: 3px 3px 6px rgba(0,0,0,0.8); max-width: 90%; }
-        
-        .slider-container { display: flex; align-items: center; gap: 10px; color: white; font-size: 14px; }
+        body { margin: 0; background: black; color: white; font-family: sans-serif; overflow: hidden; }
+        #config { background: #222; padding: 15px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #444; }
+        #status-bar { position: fixed; top: 15px; right: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: gray; }
+        #display { height: 85vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; }
+        #interim { color: #666; font-size: 24px; margin-bottom: 20px; font-style: italic; }
+        #translated { color: #FFD700; font-weight: bold; line-height: 1.2; }
+        input, select, button { padding: 8px; border-radius: 4px; border: none; }
+        button { cursor: pointer; background: #28a745; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="config-panel">
-    <input type="password" id="api-key" placeholder="Pega tu API Key aquí" style="width: 250px;">
-    <select id="translation-direction">
-        <option value="Español a Inglés">Español ➔ Inglés</option>
-        <option value="Inglés a Español">Inglés ➔ Español</option>
+<div id="config">
+    <input type="password" id="key" placeholder="API Key de Google" style="width: 250px;">
+    <select id="lang">
+        <option value="es-EN">Español a Inglés</option>
+        <option value="en-ES">Inglés a Español</option>
     </select>
-    <div class="slider-container">
-        TAMAÑO: <input type="range" id="font-size" min="40" max="150" value="80">
-    </div>
-    <button id="btn-toggle" class="btn-start">INICIAR MICRO</button>
+    <div style="font-size: 12px;">LETRA: <input type="range" id="size" min="40" max="150" value="80"></div>
+    <button id="btn">INICIAR</button>
 </div>
 
 <div id="status-bar">
-    <div id="status-dot" class="dot"></div>
-    <span id="status-text">LISTO</span>
+    <div id="dot" class="dot"></div>
+    <span id="st-text">LISTO</span>
 </div>
 
-<div id="display-area">
-    <div id="interim-text">Esperando voz...</div>
-    <div id="translated-text">...</div>
+<div id="display">
+    <div id="interim">Esperando voz...</div>
+    <div id="translated">...</div>
 </div>
 
 <script>
-    let recognition;
-    let isRecording = false;
-    let accumulatedText = "";
-    let lastTranslationTime = 0;
-    const MIN_WORDS = 5; 
+    let rec;
+    let active = false;
+    let buffer = "";
+    let lastT = 0;
 
-    const interimDisplay = document.getElementById('interim-text');
-    const translatedDisplay = document.getElementById('translated-text');
-    const btnToggle = document.getElementById('btn-toggle');
-    const statusDot = document.getElementById('status-dot');
-    const statusText = document.getElementById('status-text');
-    const fontSizeSlider = document.getElementById('font-size');
+    const interimDiv = document.getElementById('interim');
+    const transDiv = document.getElementById('translated');
+    const btn = document.getElementById('btn');
+    const dot = document.getElementById('dot');
+    const stText = document.getElementById('st-text');
+    const size = document.getElementById('size');
 
-    fontSizeSlider.oninput = () => {
-        translatedDisplay.style.fontSize = fontSizeSlider.value + 'px';
-    };
-    translatedDisplay.style.fontSize = '80px';
+    size.oninput = () => transDiv.style.fontSize = size.value + 'px';
+    transDiv.style.fontSize = '80px';
 
     if (!('webkitSpeechRecognition' in window)) {
-        alert("Por favor, usa Google Chrome para esta aplicación.");
+        alert("Usa Chrome");
     } else {
-        recognition = new webkitSpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'es-US'; 
+        rec = new webkitSpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = 'es-US';
 
-        document.getElementById('translation-direction').onchange = (e) => {
-            if(e.target.value === "Inglés a Español") {
-                recognition.lang = 'en-US';
-            } else {
-                recognition.lang = 'es-US';
-            }
+        rec.onstart = () => {
+            active = true;
+            btn.textContent = "DETENER";
+            btn.style.background = "#dc3545";
+            dot.style.background = "#28a745";
+            stText.textContent = "CONECTADO";
         };
 
-        recognition.onstart = () => {
-            isRecording = true;
-            btnToggle.textContent = "DETENER";
-            btnToggle.className = "btn-stop";
-            statusDot.style.background = "#28a745";
-            statusText.textContent = "ESCUCHANDO";
-        };
-
-        recognition.onresult = (event) => {
-            let interimTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    accumulatedText += event.results[i][0].transcript + ' ';
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
+        rec.onresult = (e) => {
+            let temp = '';
+            for (let i = e.resultIndex; i < e.results.length; ++i) {
+                if (e.results[i].isFinal) buffer += e.results[i][0].transcript + ' ';
+                else temp += e.results[i][0].transcript;
             }
-            
-            const currentSpeech = (accumulatedText + interimTranscript).trim();
-            interimDisplay.textContent = currentSpeech || "Escuchando...";
+            interimDiv.textContent = temp || buffer;
 
-            const wordCount = currentSpeech.split(/\s+/).length;
+            const words = (buffer + temp).trim().split(/\s+/).length;
             const now = Date.now();
 
-            if (wordCount >= MIN_WORDS && (now - lastTranslationTime) > 4000) {
-                translateText(currentSpeech);
-                accumulatedText = ""; 
-                lastTranslationTime = now;
+            if (words >= 6 && (now - lastT) > 4500) {
+                callAI((buffer + temp).trim());
+                buffer = "";
+                lastT = now;
             }
         };
 
-        recognition.onerror = (event) => {
-            console.error("Error micrófono:", event.error);
-        };
-
-        recognition.onend = () => {
-            if (isRecording) {
-                try { recognition.start(); } catch(e) {}
-            }
-        };
+        rec.onend = () => { if (active) rec.start(); };
     }
 
-    async function translateText(text) {
-        const apiKey = document.getElementById('api-key').value.trim();
-        const direction = document.getElementById('translation-direction').value;
-        
-        if (!apiKey) {
-            statusText.textContent = "PEGA TU API KEY";
-            statusDot.style.background = "red";
-            return;
-        }
+    async function callAI(txt) {
+        const k = document.getElementById('key').value.trim();
+        if (!k) { stText.textContent = "FALTA CLAVE"; return; }
 
-        statusDot.style.background = "#007bff";
-        statusText.textContent = "TRADUCIENDO...";
+        stText.textContent = "TRADUCIENDO...";
+        dot.style.background = "#007bff";
 
-        // Se corrigió el endpoint forzando las minúsculas estrictas para evitar el error NOT_FOUND
-        const modelName = "gemini-1.5-flash";
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
-        const promptText = `Eres un traductor simultáneo en una iglesia. Traduce de forma natural, fluida y solemne de ${direction}. Entrega exclusivamente la traducción directa, sin comentarios: "${text}"`;
-
-        const payload = {
-            contents: [{
-                parts: [{
-                    text: promptText
-                }]
-            }]
-        };
+        // CAMBIO CRÍTICO: URL de Google v1 fija y limpia
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${k}`;
 
         try {
-            const response = await fetch(url, {
+            const res = await fetch(url, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `Traduce a ${document.getElementById('lang').value === 'es-EN' ? 'inglés' : 'español'} para una iglesia, solo el texto: "${txt}"` }] }]
+                })
             });
 
-            const data = await response.json();
+            const d = await res.json();
             
-            if (response.ok && data.candidates && data.candidates[0].content.parts[0].text) {
-                translatedDisplay.textContent = data.candidates[0].content.parts[0].text;
-                statusDot.style.background = "#28a745";
-                statusText.textContent = "ESCUCHANDO";
-            } else if (data.error) {
-                throw new Error(`${data.error.status}: ${data.error.message}`);
+            if (res.ok && d.candidates) {
+                transDiv.textContent = d.candidates[0].content.parts[0].text;
+                dot.style.background = "#28a745";
+                stText.textContent = "CONECTADO";
             } else {
-                throw new Error("Estructura inesperada");
+                // Muestra el error exacto de Google para saber qué pasa
+                const errMsg = d.error ? d.error.message : "Error desconocido";
+                throw new Error(errMsg);
             }
-        } catch (error) {
-            console.error("Error detallado:", error);
-            // Mostramos el error original pero evitamos transformarlo a mayúsculas en la URL interna
-            statusText.textContent = error.message.substring(0, 35);
-            statusDot.style.background = "red";
+        } catch (err) {
+            console.error(err);
+            stText.textContent = err.message.substring(0, 30);
+            dot.style.background = "red";
         }
     }
 
-    btnToggle.onclick = () => {
-        if (isRecording) {
-            isRecording = false;
-            recognition.stop();
-            btnToggle.textContent = "INICIAR MICRO";
-            btnToggle.className = "btn-start";
-            statusDot.style.background = "gray";
-            statusText.textContent = "PAUSADO";
-        } else {
-            recognition.start();
-        }
+    btn.onclick = () => {
+        if (active) { active = false; rec.stop(); btn.textContent = "INICIAR"; btn.style.background = "#28a745"; }
+        else { rec.start(); }
     };
 </script>
-
 </body>
 </html>
