@@ -230,6 +230,7 @@ function initRecognition() {
             else interim += event.results[i][0].transcript;
         }
         
+        // Diagnóstico: Esto te muestra qué está escuchando el micro
         liveOriginal.innerText = interim || final;
 
         if (final) {
