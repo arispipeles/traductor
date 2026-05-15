@@ -29,6 +29,7 @@
             word-wrap: break-word;
         }
 
+        /* Colores y opacidad para dar tiempo a la lectura */
         .line-0 { opacity: 1; color: #fbbf24; text-shadow: 0 0 50px rgba(251, 191, 36, 0.6); transform: scale(1); }
         .line-1 { opacity: 0.5; color: #f59e0b; transform: scale(0.9); }
         .line-2 { opacity: 0.25; color: #d97706; transform: scale(0.8); }
@@ -49,7 +50,17 @@
         }
         
         .hidden-panel { transform: translateY(-100%); position: absolute; width: 100%; }
-        .live-preview { color: #444; font-style: italic; height: 25px; font-size: 1rem; text-align: center; margin-top: 5px; opacity: 0.8; }
+
+        /* Texto gris de lo que escucha el micro */
+        .live-preview { 
+            color: #444; 
+            font-style: italic; 
+            height: 30px; 
+            font-size: 1.2rem; 
+            text-align: center; 
+            margin-top: 10px;
+            text-transform: lowercase;
+        }
         
         select, input, button { border-radius: 10px; padding: 6px 12px; border: 1px solid #333; font-size: 0.9rem; font-weight: bold; }
         .btn-active { background: #b91c1c !important; border-color: #ef4444; animation: pulse 2s infinite; }
@@ -65,7 +76,7 @@
 <body>
 
 <div id="admin-panel">
-    <input type="password" id="apiKeyInput" placeholder="API Key de Google..." class="bg-black text-yellow-500 w-40 outline-none border-yellow-900/30">
+    <input type="password" id="apiKeyInput" placeholder="Pega tu API Key de Google aquí..." class="bg-black text-yellow-500 w-64 outline-none border-yellow-900/30">
     
     <button onclick="discoverModels()" class="bg-blue-800 hover:bg-blue-700 text-white transition-all">
         1. BUSCAR MODELOS
@@ -98,11 +109,11 @@
 </div>
 
 <div class="h-full flex flex-col cursor-pointer" onclick="togglePanel()">
-    <div id="live-original" class="live-preview">...</div>
+    <div id="live-original" class="live-preview">Esperando micrófono...</div>
     
     <div id="subtitle-container">
-        <div id="line-0" class="translation-line line-0">LISTO PARA TRADUCIR</div>
-        <div id="line-1" class="translation-line line-1">READY TO TRANSLATE</div>
+        <div id="line-0" class="translation-line line-0">LISTO</div>
+        <div id="line-1" class="translation-line line-1"></div>
         <div id="line-2" class="translation-line line-2"></div>
         <div id="line-3" class="translation-line line-3"></div>
     </div>
@@ -120,9 +131,10 @@ const liveOriginal = document.getElementById('live-original');
 let translationHistory = ["", "", "", ""];
 let isProcessing = false;
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 5000; // 5 segundos para máxima seguridad con cuenta gratuita
+const MIN_REQUEST_INTERVAL = 5000; // 5 segundos para proteger la cuota gratuita
 let textBuffer = "";
 
+// Cargar llave guardada
 if(localStorage.getItem('church_key')) apiKeyInput.value = localStorage.getItem('church_key');
 
 function togglePanel() { document.getElementById('admin-panel').classList.toggle('hidden-panel'); }
@@ -146,7 +158,6 @@ async function discoverModels() {
             modelSelect.innerHTML = '';
             data.models.forEach(m => {
                 if (m.supportedGenerationMethods.includes('generateContent')) {
-                    // Guardamos solo el ID limpio (ej: gemini-1.5-flash)
                     const cleanName = m.name.split('/').pop();
                     const opt = new Option(cleanName, cleanName);
                     if (cleanName === "gemini-1.5-flash") opt.selected = true;
@@ -167,27 +178,23 @@ function updateStatus(msg, color) {
 
 async function translateWithIA(text) {
     const key = apiKeyInput.value.trim();
-    // Aseguramos que el nombre esté limpio de prefijos 'models/'
-    let modelName = (modelSelect.value || "gemini-1.5-flash").split('/').pop();
+    let modelName = modelSelect.value.split('/').pop();
     const mode = languageMode.value;
     const now = Date.now();
 
     if (!key || isProcessing || text.trim().length < 8) return;
 
-    // Control de cuota para evitar el "Exceeded Quota"
-    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
-        console.log("Esperando ventana de tiempo...");
-        return;
-    }
+    // Evitar error de cuota (Rate Limit)
+    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) return;
 
     isProcessing = true;
     updateStatus("Traduciendo...", "blue");
 
     const target = mode === "es-EN" ? "English" : "Spanish";
-    const prompt = `Direct translation to ${target} (church context). No talk, just text: "${text}"`;
+    // Prompt estricto para evitar explicaciones de la IA
+    const prompt = `Direct translation to ${target} (church sermon context). NO explanations, NO intro, JUST the translated text: "${text}"`;
 
     try {
-        // URL corregida: el nombre del modelo va después de /models/ SIN repeticiones
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
         
         const response = await fetch(url, {
@@ -199,14 +206,13 @@ async function translateWithIA(text) {
         const data = await response.json();
         
         if (data.candidates && data.candidates[0]) {
-            const result = data.candidates[0].content.parts[0].text.trim();
+            const result = data.candidates[0].content.parts[0].text.trim().replace(/[/*]/g, '');
             updateDisplay(result);
             updateStatus("En línea", "green");
             textBuffer = ""; 
-            lastRequestTime = Date.now(); // Solo actualizamos el tiempo si fue exitoso
+            lastRequestTime = Date.now();
         } else if (data.error) {
             updateStatus(data.error.message.substring(0, 30), "red");
-            console.error("Error Google:", data.error);
         }
     } catch (e) {
         updateStatus("Error de red", "red");
@@ -230,7 +236,7 @@ let isRecording = false;
 function initRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        updateStatus("Chrome requerido", "red");
+        updateStatus("Navegador no compatible", "red");
         return;
     }
 
@@ -247,11 +253,12 @@ function initRecognition() {
             else interim += event.results[i][0].transcript;
         }
         
-        liveOriginal.innerText = interim || final;
+        // ESTA LÍNEA ES LA QUE PONE EL TEXTO GRIS
+        liveOriginal.innerText = interim || final || "...";
 
         if (final) {
             textBuffer += " " + final;
-            // Solo envía si hay una frase con peso (evita gastar cuota en "Amén" o silencios)
+            // Solo traduce si hay una idea con peso (evita gastar cuota en ruidos)
             if (textBuffer.split(' ').length >= 5) {
                 translateWithIA(textBuffer);
             }
@@ -259,6 +266,10 @@ function initRecognition() {
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
+    recognition.onerror = (e) => { 
+        console.error("Error micro:", e.error);
+        if(e.error === 'not-allowed') updateStatus("Micro bloqueado", "red");
+    };
 }
 
 document.getElementById('btnStart').onclick = () => {
@@ -276,6 +287,7 @@ document.getElementById('btnStart').onclick = () => {
             document.getElementById('btnStart').innerText = "DETENER";
             document.getElementById('btnStart').classList.add('btn-active');
             updateStatus("Escuchando...", "green");
+            liveOriginal.innerText = "Escuchando voz...";
         } catch(e) { updateStatus("Error Micro", "red"); }
     }
 };
