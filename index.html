@@ -10,7 +10,7 @@
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #000; 
-            color: #fbbf24; /* Amarillo vibrante para máxima legibilidad */
+            color: #fbbf24; /* Amarillo vibrante */
             overflow: hidden; 
             height: 100vh; 
             margin: 0; 
@@ -23,7 +23,6 @@
             text-align: center;
             word-wrap: break-word;
             padding: 0 5%;
-            transition: font-size 0.2s ease;
         }
         .cursor-blink { 
             animation: blink 1s infinite; 
@@ -79,7 +78,7 @@
         <input type="range" id="sizeSlider" min="5" max="25" value="14" class="w-32 accent-yellow-500">
     </div>
     <div class="flex flex-col ml-4">
-        <input type="password" id="apiKeyInput" value="AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw" class="bg-gray-900 text-[10px] text-gray-500 px-2 py-1 rounded border border-gray-700 w-40" placeholder="API KEY">
+        <input type="password" id="apiKeyInput" value="AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw" class="bg-gray-900 text-[10px] text-gray-500 px-2 py-1 rounded border border-gray-700 w-40">
     </div>
 </div>
 
@@ -94,9 +93,6 @@
 <div id="errorBox" class="error-log"></div>
 
 <script>
-let recognition;
-let isRecording = false;
-
 const btnStart = document.getElementById('btnStart');
 const translated = document.getElementById('translated');
 const original = document.getElementById('original');
@@ -104,11 +100,14 @@ const errorBox = document.getElementById('errorBox');
 const sizeSlider = document.getElementById('sizeSlider');
 const apiKeyInput = document.getElementById('apiKeyInput');
 
+let recognition;
+let isRecording = false;
+
 function showError(msg) {
     console.error(msg);
-    errorBox.innerHTML = `<strong>Aviso:</strong> ${msg}`;
+    errorBox.innerHTML = `<strong>Nota:</strong> ${msg}`;
     errorBox.style.display = 'block';
-    setTimeout(() => { errorBox.style.display = 'none'; }, 8000);
+    setTimeout(() => { errorBox.style.display = 'none'; }, 10000);
 }
 
 async function translateText(text) {
@@ -119,19 +118,16 @@ async function translateText(text) {
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
-    // Lista de modelos a intentar en orden de probabilidad de éxito
-    const modelsToTry = [
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-pro"
+    // Intentaremos con varias combinaciones de rutas y modelos
+    const attempts = [
+        { ver: "v1", mod: "gemini-1.5-flash" },
+        { ver: "v1beta", mod: "gemini-pro" },
+        { ver: "v1", mod: "gemini-pro" },
+        { ver: "v1beta", mod: "gemini-1.5-flash" }
     ];
 
-    let success = false;
-
-    for (let modelName of modelsToTry) {
-        if (success) break;
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
+    for (let attempt of attempts) {
+        const url = `https://generativelanguage.googleapis.com/${attempt.ver}/models/${attempt.mod}:generateContent?key=${key}`;
 
         try {
             const response = await fetch(url, {
@@ -140,7 +136,7 @@ async function translateText(text) {
                 body: JSON.stringify({
                     contents: [{
                         parts: [{
-                            text: `Translate this church sermon from ${source} to ${target}. ONLY output the translation, no quotes, no explanations: "${text}"`
+                            text: `Translate this sermon precisely from ${source} to ${target}. ONLY output translation: "${text}"`
                         }]
                     }]
                 })
@@ -152,24 +148,20 @@ async function translateText(text) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
                 errorBox.style.display = 'none';
-                success = true;
-            } else if (data.error) {
-                console.log(`Modelo ${modelName} falló, intentando el siguiente...`);
+                return; // Éxito, salimos de la función
             }
         } catch (e) {
-            console.log("Error de red con modelo " + modelName);
+            console.log(`Fallo con ${attempt.mod} en ${attempt.ver}`);
         }
     }
 
-    if (!success) {
-        showError("No se pudo conectar con ningún modelo de IA. Verifica tu llave o región.");
-    }
+    showError("Google no reconoció la llave o los modelos. Verifica que el proyecto esté activo en AI Studio.");
 }
 
 function initSpeech() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        showError("Tu navegador no soporta voz. Usa Google Chrome en tu Mac.");
+        showError("Usa Google Chrome en tu Mac para que el micrófono funcione.");
         return;
     }
 
@@ -195,7 +187,7 @@ function initSpeech() {
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
     recognition.onerror = (e) => {
-        if (e.error === 'not-allowed') showError("Permiso denegado. Haz clic en el candado arriba a la izquierda y permite el MICRÓFONO.");
+        if (e.error === 'not-allowed') showError("¡Activa el micrófono en el candado arriba a la izquierda!");
     };
 }
 
@@ -208,10 +200,7 @@ btnStart.onclick = () => {
             isRecording = true;
             btnStart.innerText = "DETENER";
             btnStart.classList.replace('bg-green-600', 'bg-red-600');
-            errorBox.style.display = 'none';
-        } catch (err) {
-            console.log("Micro ya activo");
-        }
+        } catch (err) {}
     } else {
         recognition.stop();
         isRecording = false;
