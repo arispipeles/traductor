@@ -78,9 +78,7 @@
         <span class="text-xs text-gray-400">Tamaño:</span>
         <input type="range" id="sizeSlider" min="5" max="25" value="14" class="w-32 accent-yellow-500">
     </div>
-    <div class="flex flex-col ml-4">
-        <input type="password" id="apiKeyInput" value="AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw" class="bg-gray-900 text-[10px] text-gray-500 px-2 py-1 rounded border border-gray-700 w-40">
-    </div>
+    <input type="password" id="apiKeyInput" value="AIzaSyDJp_CbgA7C3mBJ9TQCUynjaAS6bzPQyyw" class="bg-gray-900 text-[10px] text-gray-500 px-2 py-1 rounded border border-gray-700 w-40">
 </div>
 
 <div class="flex flex-col justify-center items-center h-screen">
@@ -118,11 +116,11 @@ async function translateText(text) {
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
-    // Esta lista prueba primero las versiones más estables y aceptadas por Google en 2024/2025
+    // Esta lista prueba primero las versiones más estables (v1) y los modelos más recientes (1.5)
     const attempts = [
         { ver: "v1", mod: "gemini-1.5-flash" },
-        { ver: "v1beta", mod: "gemini-1.5-flash" },
         { ver: "v1", mod: "gemini-1.5-pro" },
+        { ver: "v1beta", mod: "gemini-1.5-flash" },
         { ver: "v1beta", mod: "gemini-1.5-pro" }
     ];
 
@@ -147,17 +145,17 @@ async function translateText(text) {
             if (data.candidates && data.candidates[0].content) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
-                errorBox.style.display = 'none';
-                return; // Éxito total
+                errorBox.style.display = 'none'; // Limpiamos errores previos si logramos conectar
+                return; // ÉXITO: Salimos de la función
             } else if (data.error) {
-                console.log(`Intento fallido con ${attempt.mod} en ${attempt.ver}: ${data.error.message}`);
-                // Si llegamos al último intento y falla, mostramos el error
+                console.warn(`Fallo en ${attempt.ver}/${attempt.mod}: ${data.error.message}`);
+                // Si llegamos al último intento y todos fallaron, mostramos el error final
                 if (attempt === attempts[attempts.length - 1]) {
                     showError(`Google dice: ${data.error.message}`);
                 }
             }
         } catch (e) {
-            console.log("Error de conexión en intento.");
+            console.warn("Error de red en este intento, probando siguiente...");
         }
     }
 }
