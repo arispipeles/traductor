@@ -10,7 +10,7 @@
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #000; 
-            color: #fbbf24; /* Amarillo vibrante */
+            color: #fbbf24; /* Amarillo vibrante para el TV de 75" */
             overflow: hidden; 
             height: 100vh; 
             margin: 0; 
@@ -23,6 +23,7 @@
             text-align: center;
             word-wrap: break-word;
             padding: 0 5%;
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.5);
         }
         .cursor-blink { 
             animation: blink 1s infinite; 
@@ -85,7 +86,7 @@
 <div class="flex flex-col justify-center items-center h-screen">
     <div id="original" class="text-white opacity-20 text-3xl italic mb-6 h-10 text-center px-10"></div>
     <div id="translated" class="text-huge">
-        BIENVENIDOS
+        LISTO
         <span class="cursor-blink"></span>
     </div>
 </div>
@@ -117,11 +118,12 @@ async function translateText(text) {
     const source = isEsToEn ? "Spanish" : "English";
     const target = isEsToEn ? "English" : "Spanish";
 
+    // LISTA ACTUALIZADA 2024: Estos son los nombres que Google acepta ahora
     const attempts = [
-        { ver: "v1beta", mod: "gemini-1.5-flash" },
         { ver: "v1", mod: "gemini-1.5-flash" },
-        { ver: "v1beta", mod: "gemini-pro" },
-        { ver: "v1", mod: "gemini-pro" }
+        { ver: "v1beta", mod: "gemini-1.5-flash" },
+        { ver: "v1", mod: "gemini-1.5-pro" },
+        { ver: "v1beta", mod: "gemini-1.5-pro" }
     ];
 
     for (let attempt of attempts) {
@@ -134,7 +136,7 @@ async function translateText(text) {
                 body: JSON.stringify({
                     contents: [{
                         parts: [{
-                            text: `Translate this sermon precisely from ${source} to ${target}. ONLY output translation: "${text}"`
+                            text: `Translate this sermon precisely from ${source} to ${target}. Maintain religious tone. ONLY output the translation: "${text}"`
                         }]
                     }]
                 })
@@ -146,16 +148,15 @@ async function translateText(text) {
                 const result = data.candidates[0].content.parts[0].text;
                 translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
                 errorBox.style.display = 'none';
-                return; // Éxito, salimos de la función
+                return; // Éxito
             } else if (data.error) {
-                console.log(`Error con ${attempt.mod}: ${data.error.message}`);
-                // Si llegamos al último intento y falló, mostramos el error real
+                console.log(`Intento fallido con ${attempt.mod}: ${data.error.message}`);
                 if (attempt === attempts[attempts.length - 1]) {
                     showError(`Google dice: ${data.error.message}`);
                 }
             }
         } catch (e) {
-            console.log(`Fallo crítico en conexión con ${attempt.mod}`);
+            console.log("Error de conexión en intento.");
         }
     }
 }
