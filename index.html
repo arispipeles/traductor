@@ -12,7 +12,8 @@
         .cursor-blink { animation: blink 1s infinite; border-left: 15px solid #fbbf24; margin-left: 10px; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         
-        #admin-panel { background: #1a1a1a; border-bottom: 2px solid #333; padding: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center; position: relative; z-index: 1000; }
+        #admin-panel { background: #1a1a1a; border-bottom: 2px solid #333; padding: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center; position: relative; z-index: 1000; transition: all 0.3s; }
+        #admin-panel.hidden-panel { transform: translateY(-100%); position: absolute; }
         .error-log { background: #450a0a; color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 14px; margin-top: 10px; width: 100%; text-align: center; display: none; border: 1px solid #f87171; }
         .success-log { background: #064e3b; color: #a7f3d0; padding: 10px; border-radius: 8px; font-size: 14px; margin-top: 10px; width: 100%; text-align: center; display: none; }
     </style>
@@ -21,31 +22,32 @@
 
 <div id="admin-panel">
     <div class="flex flex-col">
-        <label class="text-[10px] text-gray-400 font-bold uppercase">1. Tu API Key:</label>
-        <input type="password" id="apiKeyInput" placeholder="Pega tu clave AIza..." class="bg-black text-yellow-500 px-3 py-2 rounded border border-gray-700 w-64 outline-none focus:border-yellow-500">
+        <label class="text-[10px] text-gray-400 font-bold uppercase">1. Tu Nueva API Key:</label>
+        <input type="password" id="apiKeyInput" placeholder="Pega tu clave nueva aquí..." class="bg-black text-yellow-500 px-3 py-2 rounded border border-gray-700 w-64 outline-none focus:border-yellow-500">
     </div>
 
-    <!-- BOTÓN AZUL DE BÚSQUEDA -->
     <button onclick="discoverModels()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95">
-        🔎 BUSCAR MODELOS DISPONIBLES
+        🔎 BUSCAR MODELOS
     </button>
 
     <div class="flex flex-col">
-        <label class="text-[10px] text-gray-400 font-bold uppercase">2. Modelo Detectado:</label>
+        <label class="text-[10px] text-gray-400 font-bold uppercase">2. Modelo:</label>
         <select id="modelSelect" class="bg-black text-white px-3 py-2 rounded border border-gray-700 w-48 outline-none">
-            <option value="gemini-1.5-flash">Esperando búsqueda...</option>
+            <option value="">Esperando búsqueda...</option>
         </select>
     </div>
 
     <button id="btnStart" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-full font-bold transition-all shadow-lg ml-4">INICIAR MICRÓFONO</button>
+    
+    <button onclick="togglePanel()" class="bg-gray-700 text-white px-3 py-1 rounded text-xs">OCULTAR MENÚ</button>
 
     <div id="statusBox" class="error-log"></div>
     <div id="successBox" class="success-log"></div>
 </div>
 
-<div class="flex flex-col justify-center items-center" style="height: calc(100vh - 120px);">
-    <div id="original" class="text-white opacity-30 text-2xl italic mb-6 h-10 px-10 text-center">Configura la llave y busca modelos...</div>
-    <div id="translated" class="text-huge">HOLA<span class="cursor-blink"></span></div>
+<div class="flex flex-col justify-center items-center" style="height: calc(100vh - 50px);" onclick="togglePanel()">
+    <div id="original" class="text-white opacity-30 text-2xl italic mb-6 h-10 px-10 text-center">Configura la llave nueva y busca modelos...</div>
+    <div id="translated" class="text-huge">LISTO<span class="cursor-blink"></span></div>
 </div>
 
 <script>
@@ -56,24 +58,27 @@ const successBox = document.getElementById('successBox');
 const translated = document.getElementById('translated');
 const original = document.getElementById('original');
 
-// Cargar llave si existe
-if(localStorage.getItem('church_key')) {
-    apiKeyInput.value = localStorage.getItem('church_key');
+// Recuperar llave guardada en este navegador
+if(localStorage.getItem('church_key_v2')) {
+    apiKeyInput.value = localStorage.getItem('church_key_v2');
+}
+
+function togglePanel() {
+    document.getElementById('admin-panel').classList.toggle('hidden-panel');
 }
 
 async function discoverModels() {
     const key = apiKeyInput.value.trim();
     if (!key) {
-        showError("Por favor, pega tu API Key primero.");
+        showError("Pega la llave nueva que sacaste de AI Studio.");
         return;
     }
     
-    localStorage.setItem('church_key', key);
+    localStorage.setItem('church_key_v2', key);
     showError(null);
-    showSuccess("Buscando modelos en Google...");
+    showSuccess("Conectando con Google...");
 
     try {
-        // Consultamos a Google qué modelos tiene permitidos esta llave
         const url = `https://generativelanguage.googleapis.com/v1/models?key=${key}`;
         const response = await fetch(url);
         const data = await response.json();
@@ -83,11 +88,9 @@ async function discoverModels() {
             return;
         }
 
-        if (data.models && data.models.length > 0) {
-            // Limpiamos el selector
+        if (data.models) {
             modelSelect.innerHTML = '';
-            
-            // Buscamos modelos que soporten generación de contenido
+            // Buscamos modelos compatibles con traducción
             const validModels = data.models.filter(m => m.supportedGenerationMethods.includes('generateContent'));
             
             validModels.forEach(m => {
@@ -98,13 +101,11 @@ async function discoverModels() {
                 modelSelect.appendChild(option);
             });
 
-            showSuccess(`¡Éxito! Encontrados ${validModels.length} modelos. Selecciona uno y habla.`);
-            original.innerText = "Listo para traducir. Habla ahora.";
-        } else {
-            showError("No se encontraron modelos disponibles para esta cuenta.");
+            showSuccess(`¡Llave válida! Encontrados ${validModels.length} modelos. Dale a INICIAR.`);
+            original.innerText = "Haga clic en Iniciar y hable.";
         }
     } catch (e) {
-        showError("Error de conexión. Revisa tu internet.");
+        showError("Error de conexión. Revisa el internet.");
     }
 }
 
@@ -113,7 +114,6 @@ async function translateText(text) {
     const model = modelSelect.value;
     if (!key || !model || text.trim().length < 2) return;
 
-    // Usamos la ruta ESTABLE (v1)
     const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
 
     try {
@@ -121,19 +121,16 @@ async function translateText(text) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: `Translate to English (Church sermon context, maintain solemnity): ${text}` }] }]
+                contents: [{ parts: [{ text: `Translate to English (Solemn church context): ${text}` }] }]
             })
         });
 
         const data = await response.json();
-        
-        if (data.candidates && data.candidates[0].content) {
+        if (data.candidates) {
             const result = data.candidates[0].content.parts[0].text;
             translated.innerHTML = `${result.toUpperCase()}<span class="cursor-blink"></span>`;
         }
-    } catch (e) {
-        console.error("Error en traducción:", e);
-    }
+    } catch (e) {}
 }
 
 let recognition;
@@ -142,7 +139,7 @@ let isRecording = false;
 function initSpeech() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        showError("Usa Google Chrome en tu Mac.");
+        showError("Por favor usa Chrome.");
         return;
     }
 
@@ -158,7 +155,6 @@ function initSpeech() {
             if (event.results[i].isFinal) final += event.results[i][0].transcript;
             else interim += event.results[i][0].transcript;
         }
-
         if (final) {
             original.innerText = final;
             translateText(final);
@@ -166,7 +162,6 @@ function initSpeech() {
             original.innerText = interim;
         }
     };
-
     recognition.onend = () => { if (isRecording) recognition.start(); };
 }
 
@@ -177,6 +172,7 @@ document.getElementById('btnStart').onclick = () => {
         isRecording = true;
         document.getElementById('btnStart').innerText = "DETENER";
         document.getElementById('btnStart').classList.replace('bg-green-600', 'bg-red-600');
+        showSuccess("Escuchando...");
     } else {
         recognition.stop();
         isRecording = false;
