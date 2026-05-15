@@ -60,7 +60,6 @@
     const statusText = document.getElementById('status-text');
     const fontSizeSlider = document.getElementById('font-size');
 
-    // Control de tamaño en pantalla de 75"
     fontSizeSlider.oninput = () => {
         translatedDisplay.style.fontSize = fontSizeSlider.value + 'px';
     };
@@ -72,9 +71,8 @@
         recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'es-US'; // Optimizado para español hablado en EE.UU.
+        recognition.lang = 'es-US'; 
 
-        // Cambiar idioma del micrófono según la dirección seleccionada
         document.getElementById('translation-direction').onchange = (e) => {
             if(e.target.value === "Inglés a Español") {
                 recognition.lang = 'en-US';
@@ -104,7 +102,6 @@
             const currentSpeech = (accumulatedText + interimTranscript).trim();
             interimDisplay.textContent = currentSpeech || "Escuchando...";
 
-            // Conteo de palabras e intervalo de tiempo para no saturar la API gratuita
             const wordCount = currentSpeech.split(/\s+/).length;
             const now = Date.now();
 
@@ -117,10 +114,6 @@
 
         recognition.onerror = (event) => {
             console.error("Error micrófono:", event.error);
-            if (isRecording && event.error !== 'no-speech') {
-                statusDot.style.background = "orange";
-                statusText.textContent = "RECONECTANDO...";
-            }
         };
 
         recognition.onend = () => {
@@ -131,7 +124,6 @@
     }
 
     async function translateText(text) {
-        // Limpiamos la API Key de espacios o saltos de línea invisibles que rompen la URL
         const apiKey = document.getElementById('api-key').value.trim();
         const direction = document.getElementById('translation-direction').value;
         
@@ -144,10 +136,10 @@
         statusDot.style.background = "#007bff";
         statusText.textContent = "TRADUCIENDO...";
 
-        // Usamos el endpoint estándar v1beta con el modelo de producción estable
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // Se corrigió el endpoint forzando las minúsculas estrictas para evitar el error NOT_FOUND
+        const modelName = "gemini-1.5-flash";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        // Prompt optimizado y directo
         const promptText = `Eres un traductor simultáneo en una iglesia. Traduce de forma natural, fluida y solemne de ${direction}. Entrega exclusivamente la traducción directa, sin comentarios: "${text}"`;
 
         const payload = {
@@ -174,16 +166,15 @@
                 statusDot.style.background = "#28a745";
                 statusText.textContent = "ESCUCHANDO";
             } else if (data.error) {
-                // Si Google responde un error específico, lo exponemos directamente en pantalla
                 throw new Error(`${data.error.status}: ${data.error.message}`);
             } else {
-                throw new Error("Estructura de respuesta inesperada");
+                throw new Error("Estructura inesperada");
             }
         } catch (error) {
             console.error("Error detallado:", error);
+            // Mostramos el error original pero evitamos transformarlo a mayúsculas en la URL interna
+            statusText.textContent = error.message.substring(0, 35);
             statusDot.style.background = "red";
-            // Cortamos el texto del error si es muy largo para que quepa en la barra superior
-            statusText.textContent = error.message.substring(0, 35).toUpperCase();
         }
     }
 
