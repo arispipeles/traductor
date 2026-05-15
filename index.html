@@ -1,27 +1,20 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traductor Iglesia Pro - Streaming</title>
+    <title>Traductor Iglesia Pro - Streaming Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #000; 
-            color: #fbbf24; 
-            margin: 0; 
-            overflow: hidden; 
-            height: 100vh; 
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #000; color: #fbbf24; margin: 0; overflow: hidden; height: 100vh; }
         
         #subtitle-container {
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 75vh;
+            height: 80vh;
             padding: 0 5%;
             text-align: center;
             gap: 1rem;
@@ -31,81 +24,90 @@
             line-height: 1.1;
             font-weight: 900;
             text-transform: uppercase;
-            transition: all 0.3s ease;
+            transition: all 0.5s ease-out;
             width: 100%;
         }
 
-        /* Efecto de profundidad para los subtítulos */
-        .line-0 { opacity: 1; color: #fbbf24; text-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
-        .line-1 { opacity: 0.6; transform: scale(0.95); color: #f59e0b; }
-        .line-2 { opacity: 0.3; transform: scale(0.9); color: #d97706; }
-        .line-3 { opacity: 0.15; transform: scale(0.85); color: #b45309; }
+        /* Efecto de profundidad para el televisor de 75" */
+        .line-0 { opacity: 1; color: #fbbf24; text-shadow: 0 0 40px rgba(251, 191, 36, 0.5); transform: scale(1.05); }
+        .line-1 { opacity: 0.6; color: #f59e0b; transform: scale(0.95); }
+        .line-2 { opacity: 0.3; color: #d97706; transform: scale(0.85); }
+        .line-3 { opacity: 0.15; color: #b45309; transform: scale(0.75); }
 
         #admin-panel { 
-            background: #111; 
+            background: rgba(17, 17, 17, 0.95); 
             border-bottom: 2px solid #333; 
-            padding: 10px; 
+            padding: 12px; 
             display: flex; 
             flex-wrap: wrap; 
-            gap: 12px; 
+            gap: 15px; 
             align-items: center; 
             justify-content: center; 
             position: relative; 
             z-index: 1000; 
-            font-size: 12px;
+            transition: 0.3s;
         }
         
-        .hidden-panel { transform: translateY(-100%); position: absolute; width: 100%; transition: 0.3s; }
-        .live-preview { color: #666; font-style: italic; height: 40px; font-size: 1.5rem; text-align: center; margin-top: 15px; text-transform: lowercase; }
+        .hidden-panel { transform: translateY(-100%); position: absolute; width: 100%; }
+        .live-preview { color: #555; font-style: italic; height: 30px; font-size: 1.2rem; text-align: center; margin-top: 10px; overflow: hidden; }
         
-        select, input, button { border-radius: 8px; padding: 6px 12px; border: 1px solid #333; }
-        .btn-active { background: #b91c1c !important; border-color: #ef4444; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        select, input, button { border-radius: 12px; padding: 8px 16px; border: 1px solid #444; font-weight: bold; }
+        .btn-active { background: #b91c1c !important; border-color: #ef4444; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        
+        .status-indicator { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #aaa; background: #222; padding: 5px 15px; border-radius: 20px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #666; }
+        .dot-green { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+        .dot-blue { background: #3b82f6; box-shadow: 0 0 10px #3b82f6; }
+        .dot-red { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
     </style>
 </head>
 <body>
 
 <div id="admin-panel">
-    <input type="password" id="apiKeyInput" placeholder="Pega tu API Key..." class="bg-black text-yellow-500 w-48 outline-none">
+    <input type="password" id="apiKeyInput" placeholder="Pega tu API Key..." class="bg-black text-yellow-500 w-48 outline-none border-yellow-900/50">
     
-    <button onclick="discoverModels()" class="bg-blue-700 hover:bg-blue-600 text-white font-bold transition-all">
+    <button onclick="discoverModels()" class="bg-blue-700 hover:bg-blue-600 text-white transition-all shadow-lg">
         1. BUSCAR MODELOS
     </button>
 
-    <select id="modelSelect" class="bg-black text-white w-40 outline-none">
-        <option value="gemini-1.5-flash">Predeterminado (Flash)</option>
+    <select id="modelSelect" class="bg-black text-white w-44 outline-none border-gray-700">
+        <option value="">Selecciona modelo...</option>
     </select>
 
-    <div class="flex items-center gap-2 bg-gray-900 px-3 py-1 rounded-lg">
-        <label class="text-gray-400 font-bold text-[10px]">DIRECCIÓN:</label>
-        <select id="languageMode" class="bg-transparent text-white outline-none font-bold">
+    <div class="flex items-center gap-2 bg-gray-900 px-3 py-1 rounded-xl">
+        <label class="text-gray-500 text-[10px] uppercase">Dirección:</label>
+        <select id="languageMode" class="bg-transparent text-white outline-none">
             <option value="es-EN">Español ➔ Inglés</option>
             <option value="en-ES">Inglés ➔ Español</option>
         </select>
     </div>
 
-    <div class="flex items-center gap-2">
-        <label class="text-gray-400 font-bold text-[10px]">TAMAÑO:</label>
-        <input type="range" id="sizeSlider" min="3" max="18" value="9" step="0.5" class="w-24">
+    <div class="flex items-center gap-3 bg-gray-900 px-4 py-1 rounded-xl">
+        <label class="text-gray-500 text-[10px] uppercase">Tamaño:</label>
+        <input type="range" id="sizeSlider" min="5" max="25" value="12" step="0.5" class="w-32 accent-yellow-500">
     </div>
 
-    <button id="btnStart" class="bg-green-700 hover:bg-green-600 text-white px-5 py-2 rounded-full font-bold transition-all">
+    <button id="btnStart" class="bg-green-700 hover:bg-green-600 text-white px-6 rounded-full transition-all">
         2. INICIAR MICRO
     </button>
     
-    <button onclick="togglePanel()" class="bg-gray-800 text-white border-gray-600">OCULTAR</button>
-    <div class="flex items-center text-[10px] text-gray-400 ml-2">
-        <span id="statusDot" class="status-dot bg-gray-600"></span>
+    <button onclick="togglePanel()" class="bg-gray-800 text-gray-400 hover:text-white border-none">OCULTAR</button>
+    
+    <div class="status-indicator">
+        <div id="statusDot" class="dot"></div>
         <span id="log">Listo</span>
     </div>
 </div>
 
 <div class="h-full flex flex-col cursor-pointer" onclick="togglePanel()">
-    <div id="live-original" class="live-preview">Esperando voz...</div>
+    <!-- Vista previa de lo que escucha el micro -->
+    <div id="live-original" class="live-preview">Esperando voz del pastor...</div>
     
+    <!-- Contenedor de las 4 líneas de traducción -->
     <div id="subtitle-container">
-        <div id="line-0" class="translation-line line-0">...</div>
-        <div id="line-1" class="translation-line line-1"></div>
+        <div id="line-0" class="translation-line line-0">BIENVENIDOS</div>
+        <div id="line-1" class="translation-line line-1">WELCOME</div>
         <div id="line-2" class="translation-line line-2"></div>
         <div id="line-3" class="translation-line line-3"></div>
     </div>
@@ -122,13 +124,15 @@ const liveOriginal = document.getElementById('live-original');
 
 let translationHistory = ["", "", "", ""];
 let isProcessing = false;
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 4500; // 4.5 segundos entre peticiones para NO agotar la cuota (Máx 13-15 RPM)
+let textBuffer = "";
 
-// Recuperar llave guardada para comodidad
+// Cargar llave guardada
 if(localStorage.getItem('church_key')) apiKeyInput.value = localStorage.getItem('church_key');
 
 function togglePanel() { document.getElementById('admin-panel').classList.toggle('hidden-panel'); }
 
-// Control de tamaño en tiempo real
 sizeSlider.oninput = () => {
     document.querySelectorAll('.translation-line').forEach(line => {
         line.style.fontSize = sizeSlider.value + 'vw';
@@ -137,9 +141,9 @@ sizeSlider.oninput = () => {
 
 async function discoverModels() {
     const key = apiKeyInput.value.trim();
-    if (!key) { updateLog("Error: Pega la llave", "bg-red-500"); return; }
+    if (!key) { updateStatus("Pega tu API Key primero", "red"); return; }
     localStorage.setItem('church_key', key);
-    updateLog("Buscando...", "bg-yellow-500");
+    updateStatus("Buscando modelos...", "blue");
     
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
@@ -154,38 +158,46 @@ async function discoverModels() {
                     modelSelect.add(opt);
                 }
             });
-            updateLog("Modelos cargados", "bg-green-500");
-        } else { 
-            const errorMsg = data.error ? data.error.message : "Error de API";
-            updateLog(errorMsg, "bg-red-500"); 
+            updateStatus("Modelos cargados", "green");
+        } else {
+            updateStatus("Error: " + (data.error?.message || "Llave inválida"), "red");
         }
-    } catch (e) { updateLog("Sin conexión con Google", "bg-red-500"); }
+    } catch (e) { updateStatus("Sin conexión", "red"); }
 }
 
-function updateLog(msg, colorClass) {
+function updateStatus(msg, color) {
     log.innerText = msg;
-    statusDot.className = `status-dot ${colorClass}`;
+    statusDot.className = `dot dot-${color}`;
 }
 
-async function translateChunk(text) {
+async function translateWithIA(text) {
     const key = apiKeyInput.value.trim();
-    const model = modelSelect.value || "gemini-1.5-flash"; 
+    const model = modelSelect.value || "gemini-1.5-flash";
     const mode = languageMode.value;
-    
-    if (!key || isProcessing || text.trim().split(' ').length < 2) return;
-    
+    const now = Date.now();
+
+    // 1. Validaciones básicas
+    if (!key || isProcessing || text.trim().length < 5) return;
+
+    // 2. Control de Cuota: Si se intenta enviar muy rápido, esperamos.
+    const timeSinceLast = now - lastRequestTime;
+    if (timeSinceLast < MIN_REQUEST_INTERVAL) {
+        updateStatus("Esperando turno (Cuota)...", "blue");
+        return; 
+    }
+
     isProcessing = true;
-    updateLog("Traduciendo...", "bg-blue-500");
+    lastRequestTime = Date.now();
+    updateStatus("Traduciendo...", "blue");
 
-    const sourceLang = mode === "es-EN" ? "Spanish" : "English";
-    const targetLang = mode === "es-EN" ? "English" : "Spanish";
+    const source = mode === "es-EN" ? "Spanish" : "English";
+    const target = mode === "es-EN" ? "English" : "Spanish";
 
-    const prompt = `Translate exactly this ${sourceLang} church sermon segment to ${targetLang}. 
-    Maintain a sacred and solemn tone. ONLY output the translation. No notes. No explanations. 
+    const prompt = `Translate this church sermon segment from ${source} to ${target}. 
+    Be solemn and sacred. ONLY output the translation. NO explanations. 
     TEXT: "${text}"`;
 
     try {
-        // Intentamos con v1beta que es la más flexible
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
         const response = await fetch(url, {
             method: 'POST',
@@ -194,25 +206,30 @@ async function translateChunk(text) {
         });
 
         const data = await response.json();
+        
         if (data.candidates && data.candidates[0]) {
             const result = data.candidates[0].content.parts[0].text.trim();
             updateDisplay(result);
-            updateLog("En línea", "bg-green-500");
-        } else {
-            const errorDetail = data.error ? data.error.message : "Google no respondió correctamente";
-            updateLog(errorDetail, "bg-orange-500");
+            updateStatus("En línea", "green");
+            textBuffer = ""; // Limpiamos buffer tras éxito
+        } else if (data.error) {
+            // Si sale error de cuota, avisamos visualmente
+            if(data.error.message.includes("quota")) {
+                updateStatus("Límite alcanzado. Pausando 10s...", "red");
+                lastRequestTime += 10000; // Penalización de tiempo extra
+            } else {
+                updateStatus("Google dice: " + data.error.message.substring(0,30), "red");
+            }
         }
-    } catch (e) { 
-        console.error("Error IA:", e);
-        updateLog("Error de Red", "bg-red-500"); 
-    } finally { 
-        isProcessing = false; 
+    } catch (e) {
+        updateStatus("Error de red", "red");
+    } finally {
+        isProcessing = false;
     }
 }
 
 function updateDisplay(newText) {
-    if (newText === translationHistory[0]) return;
-    
+    if (!newText || newText === translationHistory[0]) return;
     translationHistory.unshift(newText);
     if(translationHistory.length > 4) translationHistory.pop();
     
@@ -227,7 +244,7 @@ let isRecording = false;
 function initRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!window.SpeechRecognition) {
-        updateLog("Navegador no soportado", "bg-red-500");
+        updateStatus("Navegador no compatible", "red");
         return;
     }
 
@@ -248,20 +265,21 @@ function initRecognition() {
         
         liveOriginal.innerText = interim || final;
 
-        // Traducir bloques de texto para que sea fluido
+        // Estrategia de envío:
         if (final) {
-            translateChunk(final);
-        } else if (interim.split(' ').length > 8) { 
-            // Si el pastor habla mucho sin hacer pausa final, enviamos el bloque
-            if (!isProcessing) translateChunk(interim);
+            textBuffer += " " + final;
+            // Solo enviamos si el buffer tiene un tamaño decente para ahorrar cuota
+            if (textBuffer.split(' ').length > 5) {
+                translateWithIA(textBuffer);
+            }
+        } else if (interim.split(' ').length > 15) {
+            // Si el pastor no hace pausas, forzamos envío cada 15 palabras
+            translateWithIA(interim);
         }
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
-    recognition.onerror = (e) => { 
-        console.error("Error micro:", e.error); 
-        if(e.error === 'not-allowed') updateLog("Permiso de micro denegado", "bg-red-500");
-    };
+    recognition.onerror = (e) => { console.error("Error Micro:", e.error); };
 }
 
 document.getElementById('btnStart').onclick = () => {
@@ -270,27 +288,29 @@ document.getElementById('btnStart').onclick = () => {
         isRecording = false;
         document.getElementById('btnStart').innerText = "2. INICIAR MICRO";
         document.getElementById('btnStart').classList.remove('btn-active');
-        updateLog("Micrófono apagado", "bg-gray-600");
+        updateStatus("Micrófono apagado", "red");
     } else {
+        if (!modelSelect.value) {
+            updateStatus("¡Busca y selecciona un modelo!", "red");
+            return;
+        }
         initRecognition();
         try {
             recognition.start();
             isRecording = true;
             document.getElementById('btnStart').innerText = "DETENER MICRO";
             document.getElementById('btnStart').classList.add('btn-active');
-            updateLog("Escuchando...", "bg-green-500");
-        } catch(e) {
-            updateLog("Error al iniciar", "bg-red-500");
-        }
+            updateStatus("Escuchando...", "green");
+        } catch(e) { updateStatus("Error al iniciar", "red"); }
     }
 };
 
-// Cambiar idioma reinicia el micro automáticamente
+// Reiniciar micro si cambia el idioma
 languageMode.onchange = () => {
-    if (isRecording) { recognition.stop(); setTimeout(() => document.getElementById('btnStart').click(), 400); }
+    if (isRecording) { recognition.stop(); setTimeout(() => document.getElementById('btnStart').click(), 500); }
 };
 
-// Inicializar tamaño
+// Ajuste inicial de tamaño
 sizeSlider.oninput();
 </script>
 </body>
