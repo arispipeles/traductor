@@ -49,22 +49,9 @@
             padding: 0 5%;
             text-align: center;
         }
-        
-        .security-alert {
-            background: #ef4444;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-weight: bold;
-            display: none;
-        }
     </style>
 </head>
 <body>
-
-<div id="fileWarning" class="security-alert">
-    ⚠️ ATENCIÓN: Chrome bloquea el micrófono en archivos locales. Para que funcione, usa el botón "Preview" de la derecha o súbelo a un servidor.
-</div>
 
 <div id="controls" class="fixed top-0 left-0 w-full p-4 bg-gray-900/95 backdrop-blur-lg z-50 flex items-center justify-between border-b border-yellow-600/30">
     <div class="flex items-center gap-4">
@@ -115,35 +102,27 @@
 let recognition;
 let isRecording = false;
 let currentLang = 'es-ES';
-let targetLang = 'English';
-
-const btnStart = document.getElementById('btnStart');
-const btnLabel = document.getElementById('btnLabel');
-const statusIcon = document.getElementById('statusIcon');
+const apiKeyInput = document.getElementById('apiKeyInput');
 const originalText = document.getElementById('originalText');
 const translatedText = document.getElementById('translatedText');
-const langMode = document.getElementById('langMode');
-const fontSizeSlider = document.getElementById('fontSizeSlider');
-const apiKeyInput = document.getElementById('apiKeyInput');
-
-// Mostrar alerta si es archivo local
-if (window.location.protocol === 'file:') {
-    document.getElementById('fileWarning').style.display = 'block';
-}
 
 async function translateWithAI(text) {
     const activeKey = apiKeyInput.value.trim();
     if (!activeKey || text.trim().length < 2) return;
     
-    document.getElementById('originalText').classList.add('opacity-40');
+    originalText.classList.add('opacity-40');
 
+    // Prompt optimizado para la iglesia
     const prompt = `Translate the following text from ${currentLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. 
     CONTEXT: This is a church sermon. Ensure the translation is natural, respectful, and maintains the religious context. 
     TEXT: "${text}" 
     Only provide the translated text.`;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
+        // CORRECCIÓN: Usando el endpoint v1 (más estable) y el nombre de modelo directo
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -152,12 +131,15 @@ async function translateWithAI(text) {
         });
 
         const result = await response.json();
-        if (result.error) throw new Error(result.error.message);
+        
+        if (result.error) {
+            throw new Error(result.error.message);
+        }
         
         const translated = result.candidates?.[0]?.content?.parts?.[0]?.text || "Error en traducción";
         
         translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
-        document.getElementById('originalText').classList.remove('opacity-40');
+        originalText.classList.remove('opacity-40');
     } catch (error) {
         console.error("AI Error:", error);
         showNotification("⚠️ Error: " + error.message);
@@ -205,6 +187,12 @@ function setupRecognition() {
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
 }
+
+const btnStart = document.getElementById('btnStart');
+const btnLabel = document.getElementById('btnLabel');
+const statusIcon = document.getElementById('statusIcon');
+const langMode = document.getElementById('langMode');
+const fontSizeSlider = document.getElementById('fontSizeSlider');
 
 btnStart.onclick = () => {
     if (!recognition) setupRecognition();
@@ -254,7 +242,7 @@ function showNotification(msg) {
     setTimeout(() => notif.classList.add('hidden'), 6000);
 }
 
-// Initial Scale
+// Escala inicial
 translatedText.style.fontSize = `${fontSizeSlider.value}vw`;
 </script>
 
