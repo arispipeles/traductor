@@ -3,49 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traductor Pro Iglesia - IA</title>
+    <title>Traductor IA Iglesia - Versión Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #000;
-            color: #fbbf24; /* Amarillo vibrante */
-            overflow: hidden;
-            height: 100vh;
-            margin: 0;
-        }
-        .text-huge {
-            font-size: clamp(2rem, 13vw, 22rem);
-            line-height: 1.1;
-            font-weight: 900;
-            text-transform: uppercase;
-            text-shadow: 4px 4px 0px rgba(0,0,0,1);
-        }
-        .text-sub {
-            font-size: clamp(1rem, 3vw, 4rem);
-            color: #ffffff;
-            opacity: 0.5;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-        .cursor-blink {
-            animation: blink 1s infinite;
-            border-left: 10px solid #fbbf24;
-            margin-left: 10px;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #000; color: #fbbf24; overflow: hidden; height: 100vh; margin: 0; }
+        .text-huge { font-size: clamp(2rem, 13vw, 22rem); line-height: 1.1; font-weight: 900; text-transform: uppercase; text-shadow: 4px 4px 0px rgba(0,0,0,1); }
+        .text-sub { font-size: clamp(1rem, 3vw, 4rem); color: #ffffff; opacity: 0.5; font-weight: 600; margin-bottom: 1rem; }
+        .cursor-blink { animation: blink 1s infinite; border-left: 10px solid #fbbf24; margin-left: 10px; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         #controls { transition: opacity 0.3s ease; opacity: 0; }
         #controls:hover { opacity: 1; }
-        .scroll-container {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 0 5%;
-            text-align: center;
-        }
+        .scroll-container { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 5%; text-align: center; }
     </style>
 </head>
 <body>
@@ -78,7 +47,7 @@
 
 <div class="scroll-container">
     <div id="outputContainer" class="w-full">
-        <div id="originalText" class="text-sub italic">Esperando voz...</div>
+        <div id="originalText" class="text-sub italic">Esperando voz del pastor...</div>
         <div id="translatedText" class="text-huge">BIENVENIDOS<span id="cursor" class="cursor-blink"></span></div>
     </div>
 </div>
@@ -99,32 +68,41 @@ async function translateWithAI(text) {
     const activeKey = apiKeyInput.value.trim();
     if (!activeKey || text.length < 2) return;
     
-    // Usamos el endpoint más estable para Gemini 1.5 Flash
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
-    
+    // Probamos diferentes rutas que Google suele usar
+    const endpoints = [
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`,
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${activeKey}`
+    ];
+
     const prompt = `Translate the following church sermon text from ${currentInputLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. Maintain a respectful religious tone. Only return the translated text. TEXT: "${text}"`;
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
+    let success = false;
 
-        const result = await response.json();
-        
-        if (result.candidates && result.candidates[0]) {
-            const translated = result.candidates[0].content.parts[0].text;
-            translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
-            originalText.style.opacity = "0.3";
-        } else if (result.error) {
-            // Mostramos el error real para saber qué pasa
-            showNotification("Google dice: " + result.error.message);
+    for (let url of endpoints) {
+        if (success) break;
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates[0]) {
+                const translated = result.candidates[0].content.parts[0].text;
+                translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
+                originalText.style.opacity = "0.3";
+                success = true;
+            }
+        } catch (e) {
+            console.error("Error en este endpoint, probando el siguiente...");
         }
-    } catch (error) {
-        showNotification("Error de red. ¿Tienes internet?");
+    }
+
+    if (!success) {
+        showNotification("Google no responde. Verifica tu API Key o conexión.");
     }
 }
 
@@ -158,7 +136,6 @@ function setupRecognition() {
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
-    recognition.onerror = (e) => { if(e.error === 'not-allowed') showNotification("Permiso de micrófono denegado."); };
 }
 
 const btnStart = document.getElementById('btnStart');
@@ -187,7 +164,10 @@ btnStart.onclick = () => {
 
 langMode.onchange = (e) => {
     currentInputLang = (e.target.value === 'es-EN') ? 'es-ES' : 'en-US';
-    if (isRecording) recognition.stop();
+    if (isRecording) {
+        recognition.stop();
+        setTimeout(() => { recognition.start(); }, 500);
+    }
 };
 
 fontSizeSlider.oninput = (e) => {
@@ -206,7 +186,6 @@ function showNotification(msg) {
     setTimeout(() => notif.classList.add('hidden'), 5000);
 }
 
-// Escala inicial
 translatedText.style.fontSize = `${fontSizeSlider.value}vw`;
 </script>
 </body>
