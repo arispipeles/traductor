@@ -3,42 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Church Translator - Professional Edition</title>
+    <title>Traductor de Iglesia Pro - IA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #000;
-            color: #fbbf24; /* Amarillo vibrante para máxima visibilidad */
+            color: #fbbf24; /* Amarillo vibrante */
             overflow: hidden;
             height: 100vh;
+            margin: 0;
         }
         .text-huge {
-            font-size: clamp(2rem, 15vw, 25rem);
+            font-size: clamp(2rem, 12vw, 20rem);
             line-height: 1.1;
             font-weight: 900;
             text-transform: uppercase;
-            text-shadow: 4px 4px 0px rgba(0,0,0,1), 0 0 20px rgba(251, 191, 36, 0.3);
+            text-shadow: 4px 4px 0px rgba(0,0,0,1);
         }
         .text-sub {
-            font-size: clamp(1rem, 4vw, 6rem);
+            font-size: clamp(1rem, 3vw, 4rem);
             color: #ffffff;
-            opacity: 0.6;
-            font-weight: 700;
+            opacity: 0.5;
+            font-weight: 600;
+            margin-bottom: 1rem;
         }
         .cursor-blink {
             animation: blink 1s infinite;
-            border-left: 12px solid #fbbf24;
+            border-left: 10px solid #fbbf24;
             margin-left: 10px;
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         
         #controls {
-            transition: transform 0.3s ease;
-            transform: translateY(-90%);
+            transition: opacity 0.3s ease;
+            opacity: 0;
         }
-        #controls:hover { transform: translateY(0); }
+        #controls:hover { opacity: 1; }
         
         .scroll-container {
             height: 100vh;
@@ -53,74 +55,69 @@
 </head>
 <body>
 
-<div id="controls" class="fixed top-0 left-0 w-full p-4 bg-gray-900/95 backdrop-blur-lg z-50 flex items-center justify-between border-b border-yellow-600/30">
+<div id="controls" class="fixed top-0 left-0 w-full p-4 bg-gray-900/90 backdrop-blur-md z-50 flex items-center justify-between border-b border-yellow-600/20">
     <div class="flex items-center gap-4">
-        <button id="btnStart" class="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-full font-bold transition-all transform hover:scale-105 flex items-center gap-2 shadow-lg shadow-green-900/20">
-            <span id="statusIcon" class="w-4 h-4 bg-white rounded-full"></span>
+        <button id="btnStart" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-full font-bold transition-all flex items-center gap-2">
+            <span id="statusIcon" class="w-3 h-3 bg-white rounded-full"></span>
             <span id="btnLabel">INICIAR SERMÓN</span>
         </button>
         
-        <select id="langMode" class="bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 outline-none focus:ring-2 ring-yellow-500">
+        <select id="langMode" class="bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-700 outline-none">
             <option value="es-EN">Español ➔ Inglés</option>
             <option value="en-ES">Inglés ➔ Español</option>
         </select>
 
         <div class="flex flex-col ml-4">
-            <label class="text-[10px] uppercase tracking-widest text-gray-400 mb-1">Tamaño del Texto</label>
-            <input type="range" id="fontSizeSlider" min="5" max="22" value="13" class="w-48 accent-yellow-500">
+            <label class="text-[10px] uppercase text-gray-400">Tamaño de letra</label>
+            <input type="range" id="fontSizeSlider" min="5" max="25" value="12" class="w-32 accent-yellow-500">
         </div>
     </div>
 
-    <div class="flex items-center gap-6">
-        <div class="hidden md:flex flex-col items-end">
-            <span class="text-[10px] text-gray-500 uppercase">Gemini AI Key</span>
-            <input type="password" id="apiKeyInput" value="AIzaSyCw6f5TKALD5fEA60yQ_kNOhzqWA1BC06Y" class="bg-gray-950 text-[10px] text-yellow-500/50 px-2 py-1 rounded border border-gray-800 w-32 focus:border-yellow-500 outline-none">
-        </div>
-        <button id="btnFullscreen" class="bg-gray-800 p-3 rounded-full hover:bg-gray-700 text-gray-300">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+    <div class="flex items-center gap-4">
+        <input type="password" id="apiKeyInput" value="AIzaSyCw6f5TKALD5fEA60yQ_kNOhzqWA1BC06Y" class="bg-black text-[10px] text-yellow-500/50 px-2 py-1 rounded border border-gray-800 w-40">
+        <button id="btnFullscreen" class="text-gray-400 hover:text-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
         </button>
     </div>
 </div>
 
 <div class="scroll-container">
-    <div id="outputContainer" class="max-w-full flex flex-col gap-4">
-        <div id="originalText" class="text-sub italic transition-all duration-500">
-            Esperando voz del pastor...
+    <div id="outputContainer" class="w-full">
+        <div id="originalText" class="text-sub italic">
+            Esperando voz...
         </div>
         <div id="translatedText" class="text-huge">
-            WELCOME
+            BIENVENIDOS
             <span id="cursor" class="cursor-blink"></span>
         </div>
     </div>
 </div>
 
-<div id="notification" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-yellow-600 text-black px-8 py-4 rounded-2xl shadow-2xl hidden z-50 font-bold border-2 border-black animate-bounce">
+<div id="notification" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-xl hidden z-50 shadow-2xl">
     <p id="notifMessage"></p>
 </div>
 
 <script>
 let recognition;
 let isRecording = false;
-let currentLang = 'es-ES';
+let currentInputLang = 'es-ES';
 const apiKeyInput = document.getElementById('apiKeyInput');
 const originalText = document.getElementById('originalText');
 const translatedText = document.getElementById('translatedText');
 
 async function translateWithAI(text) {
     const activeKey = apiKeyInput.value.trim();
-    if (!activeKey || text.trim().length < 2) return;
+    if (!activeKey || text.length < 2) return;
     
-    originalText.classList.add('opacity-40');
-
-    // Prompt optimizado para la iglesia
-    const prompt = `Translate the following text from ${currentLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. 
-    CONTEXT: This is a church sermon. Ensure the translation is natural, respectful, and maintains the religious context. 
-    TEXT: "${text}" 
-    Only provide the translated text.`;
+    // Prompt específico para contexto de iglesia
+    const prompt = `Translate the following church sermon text from ${currentInputLang === 'es-ES' ? 'Spanish to English' : 'English to Spanish'}. 
+    Maintain a respectful and natural religious tone. 
+    TEXT: "${text}"
+    Only return the translation.`;
 
     try {
-        // CORRECCIÓN: Usando el endpoint v1 (más estable) y el nombre de modelo directo
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+        // CAMBIO CRÍTICO: Usando v1beta y el modelo exacto que suele estar disponible
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
         
         const response = await fetch(url, {
             method: 'POST',
@@ -136,56 +133,50 @@ async function translateWithAI(text) {
             throw new Error(result.error.message);
         }
         
-        const translated = result.candidates?.[0]?.content?.parts?.[0]?.text || "Error en traducción";
-        
+        const translated = result.candidates?.[0]?.content?.parts?.[0]?.text || "No se pudo traducir";
         translatedText.innerHTML = `${translated}<span class="cursor-blink"></span>`;
-        originalText.classList.remove('opacity-40');
+        originalText.style.opacity = "0.3";
     } catch (error) {
         console.error("AI Error:", error);
-        showNotification("⚠️ Error: " + error.message);
+        showNotification("⚠️ IA dice: " + error.message);
     }
 }
 
 function setupRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
     if (!window.SpeechRecognition) {
-        showNotification("Usa Chrome en tu Mac para esta aplicación.");
+        showNotification("Navegador no compatible. Usa Chrome.");
         return;
     }
 
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = currentLang;
+    recognition.lang = currentInputLang;
 
     recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+        let interim = '';
+        let final = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
+                final += event.results[i][0].transcript;
             } else {
-                interimTranscript += event.results[i][0].transcript;
+                interim += event.results[i][0].transcript;
             }
         }
 
-        if (finalTranscript) {
-            originalText.innerText = finalTranscript;
-            translateWithAI(finalTranscript);
+        if (final) {
+            originalText.innerText = final;
+            translateWithAI(final);
         } else {
-            originalText.innerText = interimTranscript;
-        }
-    };
-
-    recognition.onerror = (event) => {
-        if (event.error === 'not-allowed') {
-            showNotification("❌ Permiso denegado. Haz clic en el candado junto a la URL y activa el Micrófono.");
+            originalText.innerText = interim;
+            originalText.style.opacity = "1";
         }
     };
 
     recognition.onend = () => { if (isRecording) recognition.start(); };
+    recognition.onerror = (e) => { if(e.error !== 'no-speech') console.error(e); };
 }
 
 const btnStart = document.getElementById('btnStart');
@@ -198,16 +189,14 @@ btnStart.onclick = () => {
     if (!recognition) setupRecognition();
 
     if (!isRecording) {
-        try {
-            recognition.lang = currentLang;
-            recognition.start();
-            isRecording = true;
-            btnStart.classList.replace('bg-green-600', 'bg-red-600');
-            statusIcon.classList.add('animate-ping');
-            btnLabel.innerText = "DETENER";
-        } catch (e) {
-            console.error(e);
-        }
+        recognition.lang = currentInputLang;
+        recognition.start();
+        isRecording = true;
+        btnStart.classList.replace('bg-green-600', 'bg-red-600');
+        statusIcon.classList.add('animate-ping');
+        btnLabel.innerText = "DETENER";
+        showNotification("Escuchando... Hable ahora.");
+        setTimeout(() => document.getElementById('notification').classList.add('hidden'), 2000);
     } else {
         recognition.stop();
         isRecording = false;
@@ -218,8 +207,7 @@ btnStart.onclick = () => {
 };
 
 langMode.onchange = (e) => {
-    const val = e.target.value;
-    currentLang = (val === 'es-EN') ? 'es-ES' : 'en-US';
+    currentInputLang = (e.target.value === 'es-EN') ? 'es-ES' : 'en-US';
     if (isRecording) { recognition.stop(); }
 };
 
@@ -228,21 +216,18 @@ fontSizeSlider.oninput = (e) => {
 };
 
 document.getElementById('btnFullscreen').onclick = () => {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
 };
 
 function showNotification(msg) {
     const notif = document.getElementById('notification');
     document.getElementById('notifMessage').innerText = msg;
     notif.classList.remove('hidden');
-    setTimeout(() => notif.classList.add('hidden'), 6000);
+    setTimeout(() => notif.classList.add('hidden'), 5000);
 }
 
-// Escala inicial
+// Escala inicial según el slider
 translatedText.style.fontSize = `${fontSizeSlider.value}vw`;
 </script>
 
