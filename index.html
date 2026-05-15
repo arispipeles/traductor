@@ -41,8 +41,8 @@
 <script>
     let rec;
     let active = false;
-    let buffer = "";
-    let lastT = 0;
+    let textBuffer = ""; // Acumulador de texto
+    let timerInterval = null;
 
     const interimDiv = document.getElementById('interim');
     const transDiv = document.getElementById('translated');
@@ -68,28 +68,38 @@
             btn.style.background = "#dc3545";
             dot.style.background = "#28a745";
             stText.textContent = "CONECTADO";
+            
+            // Inicia el reloj inteligente: traduce en bloques fijos cada 8 segundos
+            startTranslationTimer();
         };
 
         rec.onresult = (e) => {
-            let temp = '';
+            let liveText = '';
             for (let i = e.resultIndex; i < e.results.length; ++i) {
-                if (e.results[i].isFinal) buffer += e.results[i][0].transcript + ' ';
-                else temp += e.results[i][0].transcript;
+                if (e.results[i].isFinal) {
+                    textBuffer += e.results[i][0].transcript + ' ';
+                } else {
+                    liveText += e.results[i][0].transcript;
+                }
             }
-            interimDiv.textContent = temp || buffer;
-
-            const words = (buffer + temp).trim().split(/\s+/).length;
-            const now = Date.now();
-
-            // Enviamos a traducir si hay más de 5 palabras y pasaron 4.5 segundos
-            if (words >= 5 && (now - lastT) > 4500) {
-                callAI((buffer + temp).trim());
-                buffer = "";
-                lastT = now;
-            }
+            // Muestra en tiempo real lo que se va hablando en gris
+            interimDiv.textContent = liveText || textBuffer || "Escuchando...";
         };
 
         rec.onend = () => { if (active) rec.start(); };
+    }
+
+    function startTranslationTimer() {
+        if(timerInterval) clearInterval(timerInterval);
+        
+        timerInterval = setInterval(() => {
+            const cleanText = textBuffer.trim();
+            // Solo mandamos a la IA si el pastor ha dicho al menos 3 palabras en esos 8 segundos
+            if (cleanText.split(/\s+/).length >= 3) {
+                callAI(cleanText);
+                textBuffer = ""; // Limpiamos el contenedor para los próximos 8 segundos
+            }
+        }, 8000); // 8 segundos exactos garantizan no romper la cuota
     }
 
     async function callAI(txt) {
@@ -99,7 +109,6 @@
         stText.textContent = "TRADUCIENDO...";
         dot.style.background = "#007bff";
 
-        // CONFIGURACIÓN ACTUALIZADA A 2026: Usamos gemini-2.0-flash en el endpoint v1
         const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${k}`;
 
         try {
@@ -107,7 +116,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Traduce a ${document.getElementById('lang').value === 'es-EN' ? 'inglés' : 'español'} de forma solemne y fluida para la pantalla de una iglesia, entrega SOLO el texto traducido sin añadir introducciones ni comillas adicionales: "${txt}"` }] }]
+                    contents: [{ parts: [{ text: `Traduce a ${document.getElementById('lang').value === 'es-EN' ? 'inglés' : 'español'} de forma solemne para la pantalla de una iglesia, entrega SOLO el texto traducido sin comentarios ni comillas extras: "${txt}"` }] }]
                 })
             });
 
@@ -129,8 +138,15 @@
     }
 
     btn.onclick = () => {
-        if (active) { active = false; rec.stop(); btn.textContent = "INICIAR"; btn.style.background = "#28a745"; }
-        else { rec.start(); }
+        if (active) { 
+            active = false; 
+            rec.stop(); 
+            clearInterval(timerInterval);
+            btn.textContent = "INICIAR"; 
+            btn.style.background = "#28a745"; 
+        } else { 
+            rec.start(); 
+        }
     };
 </script>
 </body>
