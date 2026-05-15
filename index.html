@@ -81,7 +81,8 @@
             const words = (buffer + temp).trim().split(/\s+/).length;
             const now = Date.now();
 
-            if (words >= 6 && (now - lastT) > 4500) {
+            // Enviamos a traducir si hay más de 5 palabras y pasaron 4.5 segundos
+            if (words >= 5 && (now - lastT) > 4500) {
                 callAI((buffer + temp).trim());
                 buffer = "";
                 lastT = now;
@@ -98,27 +99,26 @@
         stText.textContent = "TRADUCIENDO...";
         dot.style.background = "#007bff";
 
-        // CAMBIO CRÍTICO: URL de Google v1 fija y limpia
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${k}`;
+        // CONFIGURACIÓN ACTUALIZADA A 2026: Usamos gemini-2.0-flash en el endpoint v1
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${k}`;
 
         try {
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Traduce a ${document.getElementById('lang').value === 'es-EN' ? 'inglés' : 'español'} para una iglesia, solo el texto: "${txt}"` }] }]
+                    contents: [{ parts: [{ text: `Traduce a ${document.getElementById('lang').value === 'es-EN' ? 'inglés' : 'español'} de forma solemne y fluida para la pantalla de una iglesia, entrega SOLO el texto traducido sin añadir introducciones ni comillas adicionales: "${txt}"` }] }]
                 })
             });
 
             const d = await res.json();
             
-            if (res.ok && d.candidates) {
+            if (res.ok && d.candidates && d.candidates[0].content.parts[0].text) {
                 transDiv.textContent = d.candidates[0].content.parts[0].text;
                 dot.style.background = "#28a745";
                 stText.textContent = "CONECTADO";
             } else {
-                // Muestra el error exacto de Google para saber qué pasa
-                const errMsg = d.error ? d.error.message : "Error desconocido";
+                const errMsg = d.error ? d.error.message : "Error de respuesta";
                 throw new Error(errMsg);
             }
         } catch (err) {
