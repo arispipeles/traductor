@@ -115,8 +115,8 @@
                     'Authorization': `Bearer ${k}`
                 },
                 body: JSON.stringify({
-                    // MODELO ACTUALIZADO: El más rápido y compatible de la plataforma
-                    model: "llama3-8b-8192",
+                    // MODELO ACTUALIZADO: El estándar de alta velocidad actual para cuentas gratuitas
+                    model: "llama-3.1-8b-instant",
                     messages: [{
                         role: "user",
                         content: `Eres un traductor simultáneo en una iglesia. Traduce de forma natural, fluida y solemne de ${document.getElementById('lang').value === 'es-EN' ? 'Español a Inglés' : 'Inglés a Español'}. Entrega exclusivamente el texto traducido directo, sin comentarios ni comillas extras: "${txt}"`
