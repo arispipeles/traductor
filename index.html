@@ -89,7 +89,6 @@
     function startTranslationTimer() {
         if(timerInterval) clearInterval(timerInterval);
         
-        // Groq es tan rápido que podemos traducir cada 6 segundos sin problemas de cuota
         timerInterval = setInterval(() => {
             const cleanText = textBuffer.trim();
             if (cleanText.split(/\s+/).length >= 3) {
@@ -106,7 +105,6 @@
         stText.textContent = "TRADUCIENDO...";
         dot.style.background = "#007bff";
 
-        // Conexión directa a la API de Groq
         const url = "https://api.groq.com/openai/v1/chat/completions";
 
         try {
@@ -117,7 +115,8 @@
                     'Authorization': `Bearer ${k}`
                 },
                 body: JSON.stringify({
-                    model: "llama-3.3-70b-specdec",
+                    // MODELO ACTUALIZADO: El más rápido y compatible de la plataforma
+                    model: "llama3-8b-8192",
                     messages: [{
                         role: "user",
                         content: `Eres un traductor simultáneo en una iglesia. Traduce de forma natural, fluida y solemne de ${document.getElementById('lang').value === 'es-EN' ? 'Español a Inglés' : 'Inglés a Español'}. Entrega exclusivamente el texto traducido directo, sin comentarios ni comillas extras: "${txt}"`
