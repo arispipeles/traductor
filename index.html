@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traductor Iglesia Pro</title>
+    <title>Traductor Iglesia Pro - Motor Groq</title>
     <style>
         body { margin: 0; background: black; color: white; font-family: sans-serif; overflow: hidden; }
         #config { background: #222; padding: 15px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #444; }
@@ -19,7 +19,7 @@
 <body>
 
 <div id="config">
-    <input type="password" id="key" placeholder="API Key de Google" style="width: 250px;">
+    <input type="password" id="key" placeholder="Pega tu API Key de GROQ (gsk_...)" style="width: 280px;">
     <select id="lang">
         <option value="es-EN">Español a Inglés</option>
         <option value="en-ES">Inglés a Español</option>
@@ -41,7 +41,7 @@
 <script>
     let rec;
     let active = false;
-    let textBuffer = ""; // Acumulador de texto
+    let textBuffer = ""; 
     let timerInterval = null;
 
     const interimDiv = document.getElementById('interim');
@@ -55,7 +55,7 @@
     transDiv.style.fontSize = '80px';
 
     if (!('webkitSpeechRecognition' in window)) {
-        alert("Usa Chrome");
+        alert("Por favor, usa Google Chrome.");
     } else {
         rec = new webkitSpeechRecognition();
         rec.continuous = true;
@@ -68,8 +68,6 @@
             btn.style.background = "#dc3545";
             dot.style.background = "#28a745";
             stText.textContent = "CONECTADO";
-            
-            // Inicia el reloj inteligente: traduce en bloques fijos cada 8 segundos
             startTranslationTimer();
         };
 
@@ -82,7 +80,6 @@
                     liveText += e.results[i][0].transcript;
                 }
             }
-            // Muestra en tiempo real lo que se va hablando en gris
             interimDiv.textContent = liveText || textBuffer || "Escuchando...";
         };
 
@@ -92,38 +89,47 @@
     function startTranslationTimer() {
         if(timerInterval) clearInterval(timerInterval);
         
+        // Groq es tan rápido que podemos traducir cada 6 segundos sin problemas de cuota
         timerInterval = setInterval(() => {
             const cleanText = textBuffer.trim();
-            // Solo mandamos a la IA si el pastor ha dicho al menos 3 palabras en esos 8 segundos
             if (cleanText.split(/\s+/).length >= 3) {
-                callAI(cleanText);
-                textBuffer = ""; // Limpiamos el contenedor para los próximos 8 segundos
+                callGroqAI(cleanText);
+                textBuffer = ""; 
             }
-        }, 8000); // 8 segundos exactos garantizan no romper la cuota
+        }, 6000); 
     }
 
-    async function callAI(txt) {
+    async function callGroqAI(txt) {
         const k = document.getElementById('key').value.trim();
         if (!k) { stText.textContent = "FALTA CLAVE"; return; }
 
         stText.textContent = "TRADUCIENDO...";
         dot.style.background = "#007bff";
 
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${k}`;
+        // Conexión directa a la API de Groq
+        const url = "https://api.groq.com/openai/v1/chat/completions";
 
         try {
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${k}`
+                },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Traduce a ${document.getElementById('lang').value === 'es-EN' ? 'inglés' : 'español'} de forma solemne para la pantalla de una iglesia, entrega SOLO el texto traducido sin comentarios ni comillas extras: "${txt}"` }] }]
+                    model: "llama-3.3-70b-specdec",
+                    messages: [{
+                        role: "user",
+                        content: `Eres un traductor simultáneo en una iglesia. Traduce de forma natural, fluida y solemne de ${document.getElementById('lang').value === 'es-EN' ? 'Español a Inglés' : 'Inglés a Español'}. Entrega exclusivamente el texto traducido directo, sin comentarios ni comillas extras: "${txt}"`
+                    }],
+                    temperature: 0.3
                 })
             });
 
             const d = await res.json();
             
-            if (res.ok && d.candidates && d.candidates[0].content.parts[0].text) {
-                transDiv.textContent = d.candidates[0].content.parts[0].text;
+            if (res.ok && d.choices && d.choices[0].message.content) {
+                transDiv.textContent = d.choices[0].message.content.trim();
                 dot.style.background = "#28a745";
                 stText.textContent = "CONECTADO";
             } else {
@@ -132,7 +138,7 @@
             }
         } catch (err) {
             console.error(err);
-            stText.textContent = err.message.substring(0, 30);
+            stText.textContent = err.message.substring(0, 30).toUpperCase();
             dot.style.background = "red";
         }
     }
@@ -144,6 +150,8 @@
             clearInterval(timerInterval);
             btn.textContent = "INICIAR"; 
             btn.style.background = "#28a745"; 
+            dot.style.background = "gray";
+            stText.textContent = "LISTO";
         } else { 
             rec.start(); 
         }
